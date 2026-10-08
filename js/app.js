@@ -32,6 +32,8 @@ import reports, { maybeMonthlyReport } from './modules/reports.js';
 import today from './modules/today.js';
 import challenges from './modules/challenges.js';
 import vault from './modules/vault.js';
+import profile from './modules/profile.js';
+import news from './modules/news.js';
 import { initLock } from './lock.js';
 import { autoBackup } from './backup.js';
 import { initSync } from './sync.js';
@@ -46,6 +48,7 @@ const routes = {
   finanzas: expenses, tareas: tasks, vencimientos: deadlines, gimnasio: gym, salud: health, viajes: trips,
   ocio: media, planes: plans, cocina: recipes,
   compartidos: split, notasvoz: voice, coche: car, cuidados: cares, diario: diary, informes: reports, hoy: today, retos: challenges, datos: vault,
+  perfil: profile, noticias: news,
 };
 
 let cleanup = null;

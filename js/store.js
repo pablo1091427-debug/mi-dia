@@ -43,6 +43,20 @@ const defaults = () => ({
   shoppingDeleted: {},// borrados de la compra para sincronizar {id: marca de tiempo}
   modifiedAt: 0,      // última modificación local (para sincronizar)
   chat: [],           // {role, content, actions}
+  // Sobre mí: lo que la app y el asistente saben de ti
+  profile: {
+    name: '',           // cómo te llama la app
+    fullName: '',
+    city: '',
+    birth: '',          // AAAA-MM-DD
+    sports: '',
+    teams: '',
+    news: '',
+    goals: '',
+    people: '',
+    about: '',
+  },
+  memories: [],       // lo que el asistente recuerda de ti {id, text, date}
   settings: {
     theme: 'auto',
     googleClientId: '',
@@ -73,7 +87,7 @@ function load() {
     const parsed = JSON.parse(raw);
     delete parsed.water; // el registro de agua se eliminó en la v5
     const base = defaults();
-    return { ...base, ...parsed, settings: { ...base.settings, ...(parsed.settings || {}) } };
+    return { ...base, ...parsed, profile: { ...base.profile, ...(parsed.profile || {}) }, settings:{ ...base.settings, ...(parsed.settings || {}) } };
   } catch {
     return defaults();
   }
@@ -123,7 +137,7 @@ export function importJSON(text, { fromSync = false } = {}) {
   const base = defaults();
   const keep = Object.fromEntries(DEVICE_ONLY.map((k) => [k, data.settings[k]]));
   const localVault = data.vault;
-  data = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings, ...keep } };
+  data = { ...base, ...incoming, profile: { ...base.profile, ...(incoming.profile || {}) }, settings:{ ...base.settings, ...incoming.settings, ...keep } };
   if (!incoming.vault || !data.settings.vaultSync) data.vault = localVault || [];
   save({ fromSync });
 }

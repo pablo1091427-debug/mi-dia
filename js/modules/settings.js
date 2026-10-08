@@ -15,6 +15,10 @@ export default {
     const gState = !s.googleClientId ? 'Sin configurar' : !s.googleConnected ? 'No conectado' : G.hasToken() ? '✅ Conectado' : '🔄 Sesión caducada';
 
     view.innerHTML = `
+      <a class="card row" href="#/perfil" style="text-decoration:none;color:inherit">
+        <span style="font-size:26px">🙋‍♂️</span><div class="grow"><b>Sobre mí</b><div class="small muted">Tu ficha y lo que Claude recuerda de ti</div></div><span class="muted">›</span>
+      </a>
+
       <div class="card">
         <h2>📅 Google Calendar y Drive <span class="badge" style="margin-left:auto">${gState}</span></h2>
         <p class="small muted" style="margin-top:0">Con Google conectado, los eventos que crees aquí se guardan en tu Google Calendar y verás los de allí en la app.</p>
@@ -107,7 +111,7 @@ export default {
         </div>
         <button class="btn danger block" data-reset style="margin-top:8px">Borrar todos los datos</button>
       </div>
-      <p class="small muted" style="text-align:center">Mi Día · v6.0</p>`;
+      <p class="small muted" style="text-align:center">Mi Día · v7.0</p>`;
 
     // ---------- Sincronización ----------
     const fromSync = { fromSync: true };

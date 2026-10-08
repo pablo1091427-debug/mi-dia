@@ -3,6 +3,8 @@ import { icon } from '../icons.js';
 // [título, color de la sección, [[ruta, icono, nombre], …]]
 const GROUPS = [
   ['Organización', 'org', [
+    ['perfil', 'user', 'Sobre mí'],
+    ['noticias', 'news', 'Noticias'],
     ['hoy', 'today', 'Modo Hoy'],
     ['recordatorios', 'reminders', 'Recordatorios'],
     ['tareas', 'tasks', 'Tareas'],

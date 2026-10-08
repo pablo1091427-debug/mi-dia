@@ -19,6 +19,7 @@ import { activeChallenges, checkIn, progress } from './challenges.js';
 import { shopAdd, shopSetDone, pendingItems } from './shopping.js';
 import { addReminder, pendingReminders, whenLabel } from './reminders.js';
 import { cachedWeather, wInfo } from './weather.js';
+import { profileContext, addMemory } from './profile.js';
 
 import { createMessage } from '../ai.js';
 export { MODELS } from '../ai.js';
@@ -37,7 +38,8 @@ export function appContext() {
     return `${DAY_NAMES[x.getDay()]} ${dkey(x)}`;
   }).join(', ');
   const lines = [
-    `Ahora: ${fmtLong(today)} (${dkey(today)}), ${today.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}. Próximos días: ${next7}.`,
+    `Sobre el usuario:\n${profileContext()}`,
+    `Ahora:${fmtLong(today)} (${dkey(today)}), ${today.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}. Próximos días: ${next7}.`,
     `Google Calendar: ${G.isReady() ? 'conectado (los eventos se crean allí)' : 'no conectado (los eventos se guardan solo en la app)'}.`,
     `Agenda de hoy guardada en la app (para ver Google o más días usa consultar_agenda):\n${fmtItems(dkey(today))}`,
     `Deporte: racha de ${st.streak} días, ${st.week}/${st.goal} entrenamientos esta semana, ${st.month} este mes. ${st.doneToday ? 'Hoy ya ha entrenado.' : 'Hoy aún no ha entrenado.'}`,
@@ -81,6 +83,8 @@ const SYSTEM = `Eres el asistente personal integrado en «Mi Día», la app pers
 También eres su asistente financiero personal: ayudas a controlar ingresos y gastos, presupuestos y ahorro con consejos concretos basados en sus números (usa consultar_finanzas). No recomiendes productos financieros ni inversiones concretas; para eso sugiere un profesional.
 
 Tienes herramientas para apuntar cosas en la app y consultar la agenda. Cuando el usuario pida apuntar, añadir, recordar, registrar o crear algo, hazlo directamente con la herramienta adecuada sin pedir confirmación, y después confirma en una frase lo que has hecho. Calcula tú las fechas relativas («mañana», «el viernes») a partir de la fecha actual. Si falta un dato imprescindible (por ejemplo, la hora de un recordatorio), usa un valor razonable y dilo. Para preguntas sobre días distintos de hoy o sobre eventos de Google Calendar, usa consultar_agenda.
+
+Conoces al usuario: llámale por su nombre de vez en cuando (sin abusar) y ten en cuenta su ficha (deporte, equipos, ciudad, objetivos, gustos) en tus consejos; por ejemplo, no le propongas planes que choquen con sus entrenamientos o partidos. Cuando te cuente algo personal que convenga recordar a largo plazo (gustos, alergias, personas, rutinas, metas), guárdalo con recordar_dato sin preguntar; no guardes cosas pasajeras ni lo que ya está en su ficha.
 
 Datos actuales de la app:
 `;
@@ -230,6 +234,11 @@ const TOOLS = [
       tipo: { type: 'string', enum: ['peli', 'serie', 'libro'] }, titulo: { type: 'string' },
       estado: { type: 'string', enum: ['pendiente', 'en curso', 'terminado'] }, valoracion: { type: 'integer', description: '1 a 5, solo si la ha terminado' },
     }, ['tipo', 'titulo']),
+  },
+  {
+    name: 'recordar_dato',
+    description: 'Guarda en su memoria permanente algo personal que el usuario te ha contado (gustos, alergias, personas, rutinas, metas) para tenerlo en cuenta en el futuro.',
+    input_schema: obj({ dato: { type: 'string', description: 'Frase corta en tercera persona, p. ej. «No le gusta el pescado»' } }, ['dato']),
   },
 ];
 
@@ -423,6 +432,11 @@ async function runTool(name, i) {
         if (items.length) out.push(`${DAY_NAMES[from.getDay()]} ${k}:\n${items.map((e) => `- ${e.allDay ? 'Todo el día' : e.start + (e.end ? '-' + e.end : '')}: ${e.title}`).join('\n')}`);
       }
       return { result: out.join('\n') || 'No hay nada en esas fechas.' };
+    }
+    case 'recordar_dato': {
+      need(i.dato?.trim(), 'Falta el dato');
+      addMemory(i.dato);
+      return { result: 'Guardado en su memoria.', label: `🧠 ${i.dato.trim()}` };
     }
     default:
       throw new Error('Herramienta desconocida');

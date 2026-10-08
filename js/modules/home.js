@@ -19,6 +19,8 @@ import { nextTrip, daysUntil } from './trips.js';
 import { monthSummary } from './expenses.js';
 import { askText, hasKey, speak } from '../ai.js';
 import { appContext } from './assistant.js';
+import { myName, myAge, isMyBirthday } from './profile.js';
+import { cachedNews, fetchNews, newsList } from './news.js';
 
 // Resumen de la mañana con Claude: se genera solo la primera vez que abres la app cada mañana
 const BRIEF_KEY = 'midia-brief';
@@ -38,7 +40,7 @@ async function makeBrief(box) {
   try {
     const text = await askText({
       system: 'Eres el asistente personal de la app «Mi Día». Escribe en español, cercano y positivo, en texto plano sin Markdown ni listas, pensado para leerse en voz alta.',
-      content: `${appContext()}\n\nHazme el resumen de mi día en 3 a 5 frases: qué tengo hoy, lo urgente (recordatorios, tareas, vencimientos), el tiempo y qué ponerme, y un pequeño ánimo (por ejemplo, sobre mi racha de deporte). No inventes nada que no esté en los datos.`,
+      content: `${appContext()}\n\nHazme el resumen de mi día en 3 a 5 frases, hablándome por mi nombre: qué tengo hoy, lo urgente (recordatorios, tareas, vencimientos), el tiempo y qué ponerme, y un pequeño ánimo pensado para mí (por ejemplo, sobre el gimnasio, el entreno de fútbol o el partido del finde, según el día). Si hoy es mi cumpleaños, felicítame. No inventes nada que no esté en los datos.`,
       maxTokens: 1500,
     });
     try { localStorage.setItem(BRIEF_KEY, JSON.stringify({ date: dkey(), text })); } catch {}
@@ -76,14 +78,17 @@ export default {
     const trip = nextTrip();
     const fin = monthSummary();
     const brief = getBrief();
+    const news = cachedNews();
 
     view.innerHTML = `
       <div style="margin:2px 4px 14px">
-        <div style="font-size:24px;font-weight:800">${greeting()} 👋</div>
+        <div style="font-size:24px;font-weight:800">${greeting()}${myName() ? `, ${esc(myName())}` : ''} 👋</div>
         <div class="row"><span class="muted grow">${cap(fmtLong(new Date()))}</span><a class="btn small" href="#/hoy">🎯 Modo Hoy</a></div>
       </div>
 
-      ${diaryPending ? `<a class="card row" href="#/diario" style="text-decoration:none;color:inherit"><span style="font-size:24px">📔</span><span class="grow">¿Qué tal ha ido el día? Escribe una línea en tu diario.</span><span class="muted">›</span></a>` : ''}
+      ${isMyBirthday() ? `<div class="card row" style="border-left:6px solid var(--accent)"><span style="font-size:34px">🎉</span><div class="grow"><b>¡Feliz cumpleaños${myName() ? `, ${esc(myName())}` : ''}!</b><div class="small muted">${myAge() ? `Hoy cumples ${myAge()} años. ` : ''}Disfruta del día 🎂</div></div></div>` : ''}
+
+      ${diaryPending ?`<a class="card row" href="#/diario" style="text-decoration:none;color:inherit"><span style="font-size:24px">📔</span><span class="grow">¿Qué tal ha ido el día? Escribe una línea en tu diario.</span><span class="muted">›</span></a>` : ''}
 
       ${hasKey() ? `<div class="card">
         <h2>☀️ Tu resumen <button class="link btn small" data-speak style="margin-left:auto;background:none;color:var(--accent)" aria-label="Leer en voz alta">🔊 Escuchar</button></h2>
@@ -101,6 +106,12 @@ export default {
         ${cares.map((c) => `<li><span class="emoji">${esc(c.emoji)}</span><span class="grow ellipsis">${esc(c.what)} <span class="small muted">${esc(c.subject)}</span></span><button class="btn small" data-care="${c.id}">Hecho</button></li>`).join('')}
         ${dls.map((x) => `<li><span class="emoji">📌</span><a class="grow ellipsis" href="#/vencimientos" style="color:inherit;text-decoration:none">${esc(x.name)}</a><span class="small ${daysLeft(x) <= 7 ? 'warn-text' : 'muted'}">${leftLabel(daysLeft(x))}</span></li>`).join('')}
         </ul></div>` : ''}
+
+      ${hasKey() ? `<div class="card">
+        <h2>📰 Tus noticias <a class="link" href="#/noticias">Ver todas</a></h2>
+        <div id="news-box">${news ? newsList(news.items.slice(0, 3)) : '<span class="muted small">Lo último de tus equipos y de la actualidad.</span>'}</div>
+        ${news ? '' : '<button class="btn small block" data-news style="margin-top:8px">✨ Ver noticias de hoy</button>'}
+      </div>` : ''}
 
       ${trip ? `<a class="card row" href="#/viajes" style="text-decoration:none;color:inherit"><span style="font-size:26px">✈️</span><div class="grow"><b>${esc(trip.dest)}</b></div><span class="badge">${daysUntil(trip) > 0 ? `Faltan ${daysUntil(trip)} días` : '¡De viaje!'}</span></a>` : ''}
 
@@ -171,6 +182,14 @@ export default {
       const h = new Date().getHours();
       if (!brief && h >= 5 && h < 13) makeBrief(briefBox);
     }
+    view.querySelector('[data-news]')?.addEventListener('click', (e) => {
+      const box = view.querySelector('#news-box');
+      e.target.remove();
+      box.innerHTML = '<span class="muted small">🔎 Buscando lo último…</span>';
+      fetchNews()
+        .then((n) => { if (box.isConnected) box.innerHTML = newsList(n.items.slice(0, 3)); })
+        .catch((err) => { if (box.isConnected) box.innerHTML = `<span class="small warn-text">${esc(err.message)}</span>`; });
+    });
     bindChallengeCards(view, rerender);
     view.querySelectorAll('[data-care]').forEach((b) => (b.onclick = () => { markCare(b.dataset.care); rerender(); }));
 
