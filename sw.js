@@ -1,9 +1,12 @@
 // Service worker: guarda la app para que abra al instante y funcione sin conexión.
 // Sube la versión cada vez que cambies archivos para que el móvil descargue la nueva.
-const VERSION = 'mi-dia-v2';
+const VERSION = 'mi-dia-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/store.js', './js/utils.js', './js/google.js',
+  './js/ui.js', './js/ai.js', './js/lock.js', './js/backup.js',
+  './js/modules/tasks.js', './js/modules/deadlines.js', './js/modules/gym.js', './js/modules/health.js',
+  './js/modules/trips.js', './js/modules/media.js', './js/modules/plans.js', './js/modules/recipes.js',
   './js/modules/home.js', './js/modules/calendar.js', './js/modules/notes.js', './js/modules/sport.js',
   './js/modules/more.js', './js/modules/weather.js', './js/modules/bars.js', './js/modules/expenses.js',
   './js/modules/habits.js', './js/modules/shopping.js', './js/modules/birthdays.js', './js/modules/places.js',

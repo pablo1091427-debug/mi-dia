@@ -14,13 +14,38 @@ const defaults = () => ({
   birthdays: [],      // {id, name, day, month, year}
   places: [],         // {id, name, note, lat, lon, cat}
   reminders: [],      // {id, text, date, time, done, notified, googleId}
-  chat: [],           // {role, content}
+  // Finanzas
+  incomes: [],        // {id, amount, concept, cat, date}
+  fixedIncomes: [],   // ingresos fijos mensuales {id, name, amount, day}
+  budgets: {},        // {categoria: límite mensual}
+  goals: [],          // metas de ahorro {id, name, target, saved, deadline, emoji}
+  // Organización
+  tasks: [],          // {id, text, project, priority (1 alta-3 baja), due, done, doneAt}
+  deadlines: [],      // vencimientos {id, name, date, cat, noticeDays, yearly, notes, googleId}
+  trips: [],          // {id, dest, lat, lon, from, to, plan: {fecha: texto}, bookings: [], packing: [{id,text,done}], notes}
+  // Salud
+  gymRoutines: [],    // {id, name, exercises: [nombre]}
+  gymSessions: [],    // {id, date, routineId, sets: [{ex, reps, kg}]}
+  weights: [],        // {date, kg, waist}
+  sleep: {},          // {'AAAA-MM-DD': horas}
+  water: {},          // {'AAAA-MM-DD': vasos}
+  // Ocio
+  media: [],          // {id, type: peli|serie|libro, title, status: pendiente|en curso|terminado, rating, notes, updated}
+  recipes: [],        // recetas guardadas {id, title, time, ingredients[], steps[]}
+  chat: [],           // {role, content, actions}
   settings: {
     theme: 'auto',
     googleClientId: '',
     googleConnected: false,
     anthropicKey: '',
     model: 'claude-opus-5-5',
+    waterGoal: 8,
+    interests: '',      // para los planes del finde
+    lock: false,        // bloqueo con huella
+    lockCredId: '',
+    driveBackup: false,
+    driveFileId: '',
+    lastDriveBackup: 0,
   },
 });
 
@@ -60,8 +85,13 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 
+// Ajustes propios de este móvil que no viajan en las copias de seguridad
+const DEVICE_ONLY = ['anthropicKey', 'lock', 'lockCredId', 'googleConnected'];
+
 export function exportJSON() {
-  return JSON.stringify({ app: 'mi-dia', version: 1, exported: new Date().toISOString(), data }, null, 2);
+  const settings = { ...data.settings };
+  DEVICE_ONLY.forEach((k) => delete settings[k]);
+  return JSON.stringify({ app: 'mi-dia', version: 2, exported: new Date().toISOString(), data: { ...data, settings } });
 }
 
 export function importJSON(text) {
@@ -69,7 +99,8 @@ export function importJSON(text) {
   const incoming = parsed.data || parsed;
   if (typeof incoming !== 'object' || !incoming.settings) throw new Error('El archivo no es una copia de Mi Día');
   const base = defaults();
-  data = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings } };
+  const keep = Object.fromEntries(DEVICE_ONLY.map((k) => [k, data.settings[k]]));
+  data = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings, ...keep } };
   save();
 }
 

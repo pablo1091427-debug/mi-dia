@@ -1,7 +1,9 @@
 # Mi Día
 
-App personal para el móvil (PWA): calendario sincronizado con Google Calendar, notas, deporte,
-tiempo, bares cercanos, gastos, hábitos, lista de la compra, cumpleaños, lugares favoritos y asistente con Claude.
+App personal para el móvil (PWA): calendario sincronizado con Google Calendar, recordatorios, tareas,
+vencimientos, notas, deporte, gimnasio, salud, finanzas personales (ingresos, gastos, presupuestos, metas),
+tiempo, bares cercanos, lugares, planes del finde, cocina, pelis/series/libros, viajes, compra compartida,
+cumpleaños, copia en Google Drive, bloqueo con huella y asistente con Claude que apunta cosas por ti.
 
 No necesita instalación ni compilación: son archivos HTML/CSS/JS estáticos.
 
@@ -9,7 +11,8 @@ No necesita instalación ni compilación: son archivos HTML/CSS/JS estáticos.
 
 - `index.html`, `manifest.webmanifest`, `sw.js`: la app instalable y su funcionamiento sin conexión.
 - `js/store.js`: datos guardados en el móvil (localStorage) + copia de seguridad.
-- `js/google.js`: conexión con Google Calendar.
+- `js/google.js`: conexión con Google Calendar y Drive. `js/backup.js`: copia automática en Drive.
+- `js/ai.js`: llamadas a Claude. `js/ui.js`: gráficas, estrellas y pestañas. `js/lock.js`: bloqueo con huella.
 - `js/modules/*.js`: una pantalla por archivo (inicio, calendario, notas, deporte, tiempo, bares…).
 
 ## Servicios externos (gratis salvo el asistente)

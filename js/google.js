@@ -3,7 +3,10 @@ import { db, update } from './store.js';
 import { loadScript, dkey, addDays, pad } from './utils.js';
 
 const GSI = 'https://accounts.google.com/gsi/client';
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const SCOPE_CAL = 'https://www.googleapis.com/auth/calendar.events';
+const SCOPE_DRIVE = 'https://www.googleapis.com/auth/drive.file'; // solo los archivos que crea la app
+const SCOPE = `${SCOPE_CAL} ${SCOPE_DRIVE}`;
+const BACKUP_NAME = 'mi-dia-copia.json';
 const API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const TOKEN_KEY = 'midia-gtoken';
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -22,6 +25,15 @@ export const isConfigured = () => !!db().settings.googleClientId;
 export const isConnected = () => db().settings.googleConnected;
 export const hasToken = () => !!token();
 export const isReady = () => isConnected() && hasToken();
+// true/false si hay sesión; null si no se sabe
+export function hasDrive() {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null');
+    return t ? !!t.drive : null;
+  } catch {
+    return null;
+  }
+}
 
 // Cargar la librería de Google antes de que el usuario pulse "Conectar"
 // (la ventana de acceso tiene que abrirse directamente desde el toque).
@@ -42,14 +54,18 @@ export function connect() {
       scope: SCOPE,
       callback: (resp) => {
         if (resp.error) return reject(new Error(resp.error_description || resp.error));
-        localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: resp.access_token, exp: Date.now() + resp.expires_in * 1000 }));
+        localStorage.setItem(TOKEN_KEY, JSON.stringify({
+          token: resp.access_token, exp: Date.now() + resp.expires_in * 1000,
+          drive: google.accounts.oauth2.hasGrantedAllScopes(resp, SCOPE_DRIVE),
+        }));
         cache.clear();
         update((d) => (d.settings.googleConnected = true));
         resolve();
       },
       error_callback: (e) => reject(new Error(e?.type === 'popup_closed' ? 'Ventana cerrada' : e?.message || 'No se pudo conectar')),
     });
-    client.requestAccessToken({ prompt: isConnected() ? '' : 'consent' });
+    // Si falta algún permiso nuevo (p. ej. Drive), volver a pedir consentimiento
+    client.requestAccessToken({ prompt: isConnected() && hasDrive() !== false ? '' : 'consent' });
   });
 }
 
@@ -130,4 +146,44 @@ export async function createEvent({ title, date, start, end, allDay, notes, remi
 export async function deleteEvent(id) {
   await api(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
   cache.clear();
+}
+
+// ---------- Copia de seguridad en Google Drive ----------
+async function driveFetch(url, opts = {}) {
+  const t = token();
+  if (!t) throw Object.assign(new Error('Sesión de Google caducada'), { code: 'auth' });
+  const res = await fetch(url, { ...opts, headers: { Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
+  if (res.status === 401 || res.status === 403) throw Object.assign(new Error('Falta permiso de Google Drive: pulsa «Reconectar» en Ajustes'), { code: 'auth' });
+  return res;
+}
+
+export async function driveFindBackup() {
+  const q = encodeURIComponent(`name='${BACKUP_NAME}' and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&fields=files(id,modifiedTime)`);
+  if (!res.ok) throw new Error(`Google Drive respondió ${res.status}`);
+  return (await res.json()).files?.[0] || null;
+}
+
+// Sube la copia. Devuelve el id del archivo en Drive.
+export async function driveSaveBackup(json, fileId) {
+  if (fileId) {
+    const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: json,
+    });
+    if (res.ok) return fileId;
+    if (res.status !== 404) throw new Error(`Google Drive respondió ${res.status}`);
+  }
+  const boundary = 'midia' + Date.now();
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: BACKUP_NAME, mimeType: 'application/json' })}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n--${boundary}--`;
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body,
+  });
+  if (!res.ok) throw new Error(`Google Drive respondió ${res.status}`);
+  return (await res.json()).id;
+}
+
+export async function driveLoadBackup(fileId) {
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  if (!res.ok) throw new Error(`Google Drive respondió ${res.status}`);
+  return res.text();
 }

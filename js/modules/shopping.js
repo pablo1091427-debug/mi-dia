@@ -1,5 +1,5 @@
 import { db, update } from '../store.js';
-import { esc, uid, toast } from '../utils.js';
+import { esc, uid, toast, sheet } from '../utils.js';
 
 // Secciones del súper, en el orden habitual de recorrido
 const AISLES = [
@@ -44,7 +44,44 @@ export default {
             <button class="x-btn" data-del="${i.id}" aria-label="Quitar">✕</button>
           </li>`).join('')}</ul></div>`).join('')
         : '<div class="empty"><span class="big">🛒</span>La lista está vacía. Se ordena sola por secciones del súper.</div>'}
-      ${doneCount ? `<button class="btn block" data-clear>🧹 Quitar ${doneCount} comprado${doneCount > 1 ? 's' : ''}</button>` : ''}`;
+      ${doneCount ? `<button class="btn block" data-clear>🧹 Quitar ${doneCount} comprado${doneCount > 1 ? 's' : ''}</button>` : ''}
+      ${shopping.some((i) => !i.done) ? '<button class="btn block" data-share style="margin-top:8px">📤 Compartir lista (WhatsApp…)</button>' : ''}
+      <p class="small muted" style="text-align:center">Al compartir se envía la lista y un enlace: quien lo abra con Mi Día instalada añadirá los productos a su lista.</p>`;
+
+    // Enlace compartido: #/compra?add=leche|pan|huevos
+    const shared = location.hash.match(/[?&]add=([^&]*)/);
+    if (shared) {
+      history.replaceState(null, '', '#/compra');
+      const items = decodeURIComponent(shared[1]).split('|').map((s) => s.trim()).filter(Boolean).slice(0, 100);
+      if (items.length) {
+        const s = sheet({
+          title: 'Lista compartida',
+          body: `<p>Te han compartido ${items.length} producto${items.length > 1 ? 's' : ''}:</p><p class="muted">${esc(items.join(', '))}</p>
+            <button class="btn primary block" data-yes>Añadir a mi lista</button>`,
+        });
+        s.el.querySelector('[data-yes]').onclick = () => {
+          const have = new Set(db().shopping.filter((i) => !i.done).map((i) => i.text.toLowerCase()));
+          const fresh = items.filter((t) => !have.has(t.toLowerCase()));
+          update((d) => fresh.forEach((text) => d.shopping.push({ id: uid(), text, cat: guessAisle(text), done: false })));
+          s.close();
+          toast(`🛒 ${fresh.length} añadidos${items.length > fresh.length ? ` (${items.length - fresh.length} ya los tenías)` : ''}`);
+          rerender();
+        };
+      }
+    }
+
+    view.querySelector('[data-share]')?.addEventListener('click', async () => {
+      const pending = db().shopping.filter((i) => !i.done).map((i) => i.text);
+      const link = `${location.origin}${location.pathname}#/compra?add=${encodeURIComponent(pending.join('|'))}`;
+      const text = `🛒 Lista de la compra:\n${pending.map((t) => `- ${t}`).join('\n')}\n\nAñádela a tu Mi Día: ${link}`;
+      try {
+        if (navigator.share) await navigator.share({ title: 'Lista de la compra', text });
+        else {
+          await navigator.clipboard.writeText(text);
+          toast('Lista copiada: pégala en WhatsApp');
+        }
+      } catch {}
+    });
 
     const form = view.querySelector('[data-add]');
     form.onsubmit = (e) => {

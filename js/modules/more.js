@@ -1,19 +1,37 @@
-const TILES = [
-  ['tiempo', '🌤️', 'Tiempo'],
-  ['bares', '🍺', 'Cerca de mí'],
-  ['gastos', '💶', 'Gastos'],
-  ['recordatorios', '⏰', 'Recordatorios'],
-  ['habitos', '✅', 'Hábitos'],
-  ['compra', '🛒', 'Compra'],
-  ['cumples', '🎂', 'Cumpleaños'],
-  ['lugares', '⭐', 'Mis lugares'],
-  ['asistente', '🤖', 'Asistente'],
-  ['ajustes', '⚙️', 'Ajustes'],
+const GROUPS = [
+  ['Organización', [
+    ['recordatorios', '⏰', 'Recordatorios'],
+    ['tareas', '✔️', 'Tareas'],
+    ['vencimientos', '📌', 'Vencimientos'],
+    ['compra', '🛒', 'Compra'],
+    ['cumples', '🎂', 'Cumpleaños'],
+    ['asistente', '🤖', 'Asistente'],
+  ]],
+  ['Dinero', [
+    ['gastos', '💶', 'Finanzas'],
+  ]],
+  ['Salud', [
+    ['gimnasio', '🏋️', 'Gimnasio'],
+    ['salud', '❤️', 'Salud'],
+    ['habitos', '✅', 'Hábitos'],
+  ]],
+  ['Ocio y salir', [
+    ['tiempo', '🌤️', 'Tiempo'],
+    ['bares', '🍺', 'Cerca de mí'],
+    ['lugares', '⭐', 'Mis lugares'],
+    ['planes', '🎉', 'Planes finde'],
+    ['cocina', '🍳', 'Cocina'],
+    ['ocio', '🎬', 'Pelis y libros'],
+    ['viajes', '✈️', 'Viajes'],
+  ]],
+  ['', [['ajustes', '⚙️', 'Ajustes']]],
 ];
 
 export default {
   title: 'Más',
   render(view) {
-    view.innerHTML = `<div class="tiles">${TILES.map(([r, e, n]) => `<a class="tile" href="#/${r}"><span>${e}</span>${n}</a>`).join('')}</div>`;
+    view.innerHTML = GROUPS.map(([title, tiles]) => `
+      ${title ? `<div class="tiles-title">${title}</div>` : '<div style="height:16px"></div>'}
+      <div class="tiles">${tiles.map(([r, e, n]) => `<a class="tile" href="#/${r}"><span>${e}</span>${n}</a>`).join('')}</div>`).join('');
   },
 };

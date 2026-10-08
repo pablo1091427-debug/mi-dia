@@ -5,22 +5,23 @@ import { itemsForDay } from './calendar.js';
 import { sportStats, SPORT_TYPES, sportType } from './sport.js';
 import { isDone, toggleHabit } from './habits.js';
 import { upcomingBirthdays } from './birthdays.js';
-import { monthTotal, EXP_CATS } from './expenses.js';
+import { EXP_CATS, INC_CATS, monthSummary, addExpense, addIncome } from './expenses.js';
+import { addTask, openTasks } from './tasks.js';
+import { addDeadline, dueSoon, DL_CATS } from './deadlines.js';
+import { nextTrip } from './trips.js';
+import { waterToday, addWater, logWeight, logSleep } from './health.js';
+import { addMedia, MEDIA_TYPES } from './media.js';
 import { guessAisle } from './shopping.js';
 import { addReminder, pendingReminders, whenLabel } from './reminders.js';
 import { cachedWeather, wInfo } from './weather.js';
 
-const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.127.0/+esm';
-export const MODELS = [
-  { id: 'claude-opus-5-5', name: 'Claude Opus 5.5 (el más listo)' },
-  { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (equilibrado)' },
-  { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5 (rápido y barato)' },
-];
+import { createMessage } from '../ai.js';
+export { MODELS } from '../ai.js';
 
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 // ---------- Contexto: resumen de la app para que el asistente conozca tu día ----------
-function context() {
+export function appContext() {
   const d = db();
   const today = new Date();
   const fmtItems = (k) => itemsForDay(k).map((e) => `- ${e.allDay ? 'Todo el día' : e.start}: ${e.title}`).join('\n') || '- (nada)';
@@ -43,7 +44,16 @@ function context() {
   lines.push(`Lista de la compra pendiente: ${shop.length ? shop.join(', ') : '(vacía)'}.`);
   const bd = upcomingBirthdays().filter((b) => b.days <= 30);
   if (bd.length) lines.push(`Próximos cumpleaños: ${bd.map((b) => `${b.name} el ${b.day} de ${MESES[b.month - 1]} (en ${b.days} días)`).join('; ')}.`);
-  lines.push(`Gasto apuntado este mes: ${fmtMoney(monthTotal())}.`);
+  const fin = monthSummary();
+  lines.push(`Finanzas del mes: ingresos ${fmtMoney(fin.income)}, gastos ${fmtMoney(fin.spent)} (fijos ${fmtMoney(fin.fixed)}), balance ${fmtMoney(fin.balance)}.${fin.over.length ? ` Presupuesto superado en: ${fin.over.map((c) => (EXP_CATS.find((x) => x.id === c) || {}).name).join(', ')}.` : ''}`);
+  if (d.goals.length) lines.push(`Metas de ahorro: ${d.goals.map((g) => `${g.name} ${fmtMoney(g.saved)}/${fmtMoney(g.target)}`).join('; ')}.`);
+  const tasks = openTasks().slice(0, 12);
+  if (tasks.length) lines.push(`Tareas pendientes: ${tasks.map((t) => `${t.text}${t.due ? ` (límite ${t.due})` : ''}${t.project ? ` [${t.project}]` : ''}`).join('; ')}.`);
+  const dls = dueSoon();
+  if (dls.length) lines.push(`Vencimientos próximos: ${dls.map((x) => `${x.name} el ${x.date}`).join('; ')}.`);
+  const trip = nextTrip();
+  if (trip) lines.push(`Próximo viaje: ${trip.dest} del ${trip.from} al ${trip.to}.`);
+  lines.push(`Salud hoy: ${waterToday()}/${d.settings.waterGoal || 8} vasos de agua${d.sleep[dkey()] !== undefined ? `, durmió ${d.sleep[dkey()]} h` : ''}${d.weights.length ? `, último peso ${d.weights.at(-1).kg} kg (${d.weights.at(-1).date})` : ''}.`);
   if (w) {
     const c = w.w.current;
     lines.push(`Tiempo en ${w.place || 'su zona'}: ${Math.round(c.temperature_2m)}°C, ${wInfo(c.weather_code).t}; hoy máx ${Math.round(w.w.daily.temperature_2m_max[0])}° y mín ${Math.round(w.w.daily.temperature_2m_min[0])}°, probabilidad de lluvia ${w.w.daily.precipitation_probability_max[0]}%.`);
@@ -52,7 +62,9 @@ function context() {
   return lines.join('\n');
 }
 
-const SYSTEM = `Eres el asistente personal integrado en «Mi Día», la app personal del usuario (calendario, recordatorios, notas, deporte, hábitos, gastos, compra, cumpleaños). Respondes en español, de forma cercana, breve y práctica, como un buen amigo organizado. Escribe en texto plano sin Markdown (sin asteriscos ni almohadillas); usa guiones para las listas.
+const SYSTEM = `Eres el asistente personal integrado en «Mi Día», la app personal del usuario (calendario, recordatorios, tareas, vencimientos, notas, deporte, gimnasio, salud, hábitos, finanzas, compra, cumpleaños, viajes, ocio). Respondes en español, de forma cercana, breve y práctica, como un buen amigo organizado. Escribe en texto plano sin Markdown (sin asteriscos ni almohadillas); usa guiones para las listas.
+
+También eres su asistente financiero personal: ayudas a controlar ingresos y gastos, presupuestos y ahorro con consejos concretos basados en sus números (usa consultar_finanzas). No recomiendes productos financieros ni inversiones concretas; para eso sugiere un profesional.
 
 Tienes herramientas para apuntar cosas en la app y consultar la agenda. Cuando el usuario pida apuntar, añadir, recordar, registrar o crear algo, hazlo directamente con la herramienta adecuada sin pedir confirmación, y después confirma en una frase lo que has hecho. Calcula tú las fechas relativas («mañana», «el viernes») a partir de la fecha actual. Si falta un dato imprescindible (por ejemplo, la hora de un recordatorio), usa un valor razonable y dilo. Para preguntas sobre días distintos de hoy o sobre eventos de Google Calendar, usa consultar_agenda.
 
@@ -134,6 +146,52 @@ const TOOLS = [
     description: 'Devuelve eventos (app y Google Calendar), recordatorios, cumpleaños y deporte entre dos fechas (máximo 31 días).',
     input_schema: obj({ desde: DATE, hasta: DATE }, ['desde', 'hasta']),
   },
+  {
+    name: 'anadir_ingreso',
+    description: 'Apunta un ingreso puntual (nómina, extra, venta, regalo, devolución…).',
+    input_schema: obj({
+      importe: { type: 'number', description: 'Euros' }, concepto: { type: 'string' },
+      tipo: { type: 'string', enum: INC_CATS.map((c) => c.id), description: INC_CATS.map((c) => `${c.id}=${c.name}`).join(', ') },
+      fecha: DATE,
+    }, ['importe', 'tipo']),
+  },
+  {
+    name: 'consultar_finanzas',
+    description: 'Devuelve el resumen financiero de un mes: ingresos, gastos por categoría, fijos, presupuestos, balance, metas y los movimientos.',
+    input_schema: obj({ mes: { type: 'string', description: 'AAAA-MM' } }, ['mes']),
+  },
+  {
+    name: 'crear_tarea',
+    description: 'Crea una tarea pendiente (cosas por hacer sin hora concreta).',
+    input_schema: obj({ texto: { type: 'string' }, proyecto: { type: 'string' }, prioridad: { type: 'integer', enum: [1, 2, 3], description: '1 alta, 2 media, 3 baja' }, fecha_limite: DATE }, ['texto']),
+  },
+  {
+    name: 'completar_tarea',
+    description: 'Marca como hecha una tarea pendiente buscándola por su texto.',
+    input_schema: obj({ texto: { type: 'string' } }, ['texto']),
+  },
+  {
+    name: 'anadir_vencimiento',
+    description: 'Apunta algo que caduca o vence (ITV, seguro, DNI, revisión…) para avisar con antelación.',
+    input_schema: obj({
+      nombre: { type: 'string' }, fecha: DATE,
+      tipo: { type: 'string', enum: DL_CATS.map((c) => c.id), description: DL_CATS.map((c) => `${c.id}=${c.name}`).join(', ') },
+      dias_aviso: { type: 'integer' }, anual: { type: 'boolean' },
+    }, ['nombre', 'fecha']),
+  },
+  {
+    name: 'registrar_salud',
+    description: 'Registra peso (kg), vasos de agua bebidos (se suman a los de hoy) u horas de sueño.',
+    input_schema: obj({ peso_kg: { type: 'number' }, vasos_agua: { type: 'integer' }, horas_sueno: { type: 'number' }, fecha: DATE }, []),
+  },
+  {
+    name: 'anadir_ocio',
+    description: 'Añade una película, serie o libro a su lista.',
+    input_schema: obj({
+      tipo: { type: 'string', enum: ['peli', 'serie', 'libro'] }, titulo: { type: 'string' },
+      estado: { type: 'string', enum: ['pendiente', 'en curso', 'terminado'] }, valoracion: { type: 'integer', description: '1 a 5, solo si la ha terminado' },
+    }, ['tipo', 'titulo']),
+  },
 ];
 
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(parseKey(s));
@@ -201,8 +259,63 @@ async function runTool(name, i) {
       const amount = Math.round(Number(i.importe) * 100) / 100;
       need(amount > 0, 'Importe no válido');
       const cat = EXP_CATS.some((c) => c.id === i.categoria) ? i.categoria : 'other';
-      update((d) => d.expenses.push({ id: uid(), amount, concept: (i.concepto || '').trim(), cat, date: isDate(i.fecha) ? i.fecha : dkey() }));
-      return { result: 'Gasto apuntado.', label: `💶 ${fmtMoney(amount)}${i.concepto ? ' · ' + i.concepto : ''}` };
+      const date = isDate(i.fecha) ? i.fecha : dkey();
+      addExpense({ amount, concept: i.concepto || '', cat, date });
+      const lim = db().budgets[cat];
+      const spent = monthSummary(date.slice(0, 7)).byCat[cat] || 0;
+      return { result: `Gasto apuntado.${lim ? ` En esta categoría lleva ${fmtMoney(spent)} de un presupuesto de ${fmtMoney(lim)}.` : ''}`, label: `💶 ${fmtMoney(amount)}${i.concepto ? ' · ' + i.concepto : ''}` };
+    }
+    case 'anadir_ingreso': {
+      const amount = Math.round(Number(i.importe) * 100) / 100;
+      need(amount > 0, 'Importe no válido');
+      const cat = INC_CATS.some((c) => c.id === i.tipo) ? i.tipo : 'other';
+      addIncome({ amount, concept: i.concepto || '', cat, date: isDate(i.fecha) ? i.fecha : dkey() });
+      return { result: 'Ingreso apuntado.', label: `💰 +${fmtMoney(amount)}${i.concepto ? ' · ' + i.concepto : ''}` };
+    }
+    case 'consultar_finanzas': {
+      const ym = /^\d{4}-\d{2}$/.test(i.mes || '') ? i.mes : dkey().slice(0, 7);
+      const s = monthSummary(ym);
+      const d = db();
+      const catName = (id) => (EXP_CATS.find((c) => c.id === id) || { name: id }).name;
+      const moves = [...d.expenses.filter((e) => e.date.startsWith(ym)).map((e) => `${e.date} −${fmtMoney(e.amount)} ${catName(e.cat)} ${e.concept}`),
+        ...d.incomes.filter((e) => e.date.startsWith(ym)).map((e) => `${e.date} +${fmtMoney(e.amount)} ${e.concept}`)].sort().slice(-60);
+      return {
+        result: [
+          `Mes ${ym}: ingresos ${fmtMoney(s.income)}, gastos ${fmtMoney(s.spent)} (variables ${fmtMoney(s.variable)}, fijos ${fmtMoney(s.fixed)}), balance ${fmtMoney(s.balance)}${s.rate !== null ? `, tasa de ahorro ${Math.round(s.rate * 100)} %` : ''}.`,
+          `Por categoría: ${Object.entries(s.byCat).map(([c, v]) => `${catName(c)} ${fmtMoney(v)}${d.budgets[c] ? ` (presupuesto ${fmtMoney(d.budgets[c])})` : ''}`).join(', ') || 'sin gastos variables'}.`,
+          `Fijos: ${d.subs.map((x) => `${x.name} ${fmtMoney(x.amount)}`).join(', ') || 'ninguno'}. Ingresos fijos: ${d.fixedIncomes.map((x) => `${x.name} ${fmtMoney(x.amount)}`).join(', ') || 'ninguno'}.`,
+          `Metas: ${d.goals.map((g) => `${g.name} ${fmtMoney(g.saved)}/${fmtMoney(g.target)}${g.deadline ? ' para ' + g.deadline : ''}`).join('; ') || 'ninguna'}.`,
+          `Movimientos:\n${moves.join('\n') || '(ninguno)'}`,
+        ].join('\n'),
+      };
+    }
+    case 'crear_tarea': {
+      const t = addTask({ text: i.texto, project: i.proyecto || '', priority: i.prioridad || 2, due: isDate(i.fecha_limite) ? i.fecha_limite : '' });
+      return { result: 'Tarea creada.', label: `✔️ ${t.text}${t.due ? ' · ' + t.due : ''}` };
+    }
+    case 'completar_tarea': {
+      const q = norm(i.texto || '');
+      const t = openTasks().find((x) => norm(x.text).includes(q) || q.includes(norm(x.text)));
+      need(t, `No encontré esa tarea. Pendientes: ${openTasks().map((x) => x.text).join('; ') || 'ninguna'}`);
+      update((d) => Object.assign(d.tasks.find((x) => x.id === t.id), { done: true, doneAt: Date.now() }));
+      return { result: `Tarea «${t.text}» completada.`, label: `✅ ${t.text}` };
+    }
+    case 'anadir_vencimiento': {
+      const dl = await addDeadline({ name: i.nombre, date: i.fecha, cat: i.tipo || 'other', noticeDays: i.dias_aviso || 30, yearly: !!i.anual });
+      return { result: `Vencimiento guardado; avisará ${dl.noticeDays} días antes.`, label: `📌 ${dl.name} · ${dl.date}` };
+    }
+    case 'registrar_salud': {
+      const date = isDate(i.fecha) ? i.fecha : dkey();
+      const done = [];
+      if (i.peso_kg) { logWeight({ kg: Number(i.peso_kg), date }); done.push(`⚖️ ${i.peso_kg} kg`); }
+      if (Number.isInteger(i.vasos_agua) && i.vasos_agua) { addWater(i.vasos_agua); done.push(`💧 +${i.vasos_agua} vasos`); }
+      if (i.horas_sueno !== undefined && i.horas_sueno !== null) { logSleep(Number(i.horas_sueno), date); done.push(`😴 ${i.horas_sueno} h`); }
+      need(done.length, 'No hay nada que registrar');
+      return { result: 'Registrado.', label: done.join(' · ') };
+    }
+    case 'anadir_ocio': {
+      const m = addMedia({ type: i.tipo, title: i.titulo, status: i.estado || 'pendiente', rating: i.valoracion || 0 });
+      return { result: 'Añadido a su lista.', label: `${MEDIA_TYPES[m.type].e} ${m.title}` };
     }
     case 'anadir_cumpleanos': {
       need(i.nombre && i.dia >= 1 && i.dia <= 31 && i.mes >= 1 && i.mes <= 12, 'Datos del cumpleaños no válidos');
@@ -255,21 +368,14 @@ let sending = false;
 let listening = false;
 
 async function ask(history) {
-  const { anthropicKey, model } = db().settings;
-  const { default: Anthropic } = await import(SDK_URL);
-  const client = new Anthropic({ apiKey: anthropicKey, dangerouslyAllowBrowser: true });
   // El contexto se calcula una vez por pregunta y no cambia durante la conversación de herramientas
-  const system = SYSTEM + context();
+  const system = SYSTEM + appContext();
   const messages = [...history];
   const actions = [];
   let text = '';
   try {
     for (let step = 0; step < 8; step++) {
-      const params = { model, max_tokens: 4000, system, tools: TOOLS, messages, output_config: { effort: 'low' } };
-      // Opus y Sonnet: si la petición se rechaza por seguridad, la API reintenta con otro modelo
-      const resp = model === 'claude-haiku-5-5'
-        ? await client.messages.create(params)
-        : await client.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' });
+      const resp = await createMessage({ system, messages, tools: TOOLS });
       if (resp.stop_reason === 'refusal') return { text: 'Lo siento, no puedo ayudar con eso.', actions };
       const content = echoable(resp.content);
       text = content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim() || text;
@@ -291,10 +397,6 @@ async function ask(history) {
     return { text: text || (actions.length ? 'Hecho.' : '(Sin respuesta)'), actions };
   } catch (e) {
     if (actions.length) return { text: `Hice parte de lo que pediste, pero hubo un error: ${e.message}`, actions };
-    if (e instanceof Anthropic.AuthenticationError) throw new Error('La clave de API no es válida. Revísala en Ajustes.');
-    if (e instanceof Anthropic.RateLimitError) throw new Error('Demasiadas peticiones; espera un momento.');
-    if (e instanceof Anthropic.APIConnectionError) throw new Error('Sin conexión con Claude. ¿Tienes internet?');
-    if (e instanceof Anthropic.APIError) throw new Error(`Error de la API (${e.status}): ${e.message}`);
     throw e;
   }
 }
