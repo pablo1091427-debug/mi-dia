@@ -285,6 +285,8 @@ path.viz-s2 { fill: var(--series-2); }
 .tiles-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 4px 8px; }
 .tiles-title:first-child { margin-top: 4px; }
 .warn-text { color: var(--danger); }
+body.focus-mode .topbar, body.focus-mode .bottom-nav { display: none; }
+body.focus-mode .view { padding-top: calc(16px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
 @media (min-width: 560px) {
   .tiles { grid-template-columns: repeat(4, 1fr); }

@@ -1,5 +1,6 @@
 import { db, update, exportJSON, importJSON, resetAll } from '../store.js';
-import { esc, dkey, toast, download, confirmSheet } from '../utils.js';
+import { esc, dkey, toast, download, confirmSheet, sheet } from '../utils.js';
+import * as S from '../sync.js';
 import * as G from '../google.js';
 import { applyTheme } from '../app.js';
 import { MODELS } from '../ai.js';
@@ -64,6 +65,32 @@ export default {
           <select class="input" style="width:auto" data-watergoal>${[4, 5, 6, 7, 8, 9, 10, 12].map((n) => `<option ${n === s.waterGoal ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       </div>
 
+      <div class="card" id="sync">
+        <h2>🔄 Sincronización ${S.configured() ? `<span class="badge" style="margin-left:auto">${S.syncError() ? '⚠️ Error' : s.syncCode || s.shareCode ? '✅ Activa' : 'Lista'}</span>` : ''}</h2>
+        <p class="small muted" style="margin-top:0">Usa tus datos en varios dispositivos (móvil, PC…) y comparte la lista de la compra en directo con tu pareja. Necesita una cuenta gratuita de Supabase.</p>
+        ${S.syncError() ? `<p class="small warn-text">${esc(S.syncError())}</p>` : ''}
+        <label class="field"><span>URL del proyecto de Supabase</span><input class="input" name="surl" value="${esc(s.syncUrl)}" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
+        <label class="field"><span>Clave pública (anon / publishable)</span><input class="input" name="skey" value="${esc(s.syncKey)}" placeholder="eyJhbGciOi… o sb_publishable_…" autocomplete="off"></label>
+        <details class="small" style="margin-bottom:10px"><summary>Cómo configurarlo (5 minutos)</summary>
+          <ol style="padding-left:18px">
+            <li>Crea una cuenta gratis en <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> y un proyecto nuevo.</li>
+            <li>Abre «SQL Editor», pega este código y pulsa «Run»: <button class="btn small" type="button" data-copysql>Copiar SQL</button></li>
+            <li>En «Project Settings» → «API» copia la URL del proyecto y la clave pública «anon» (o «publishable») y pégalas arriba.</li>
+            <li>Pulsa «Crear mi espacio» aquí, y en tu otro dispositivo usa el enlace de «Añadir otro dispositivo».</li>
+          </ol></details>
+        ${S.configured() ? `
+          <div class="hr"></div>
+          <b>📱 Mis dispositivos</b>
+          ${s.syncCode ? `<p class="small muted">Sincronizado${s.syncPulledAt ? ` · última vez ${new Date(s.syncPulledAt).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}` : ''}.</p>
+            <div class="row wrap" style="gap:8px"><button class="btn grow" data-syncnow>Sincronizar ahora</button><button class="btn grow" data-adddevice>Añadir otro dispositivo</button></div>
+            <button class="btn danger block small" data-syncoff style="margin-top:6px">Dejar de sincronizar este dispositivo</button>`
+          : `<div class="row wrap" style="gap:8px;margin-top:6px"><button class="btn primary grow" data-synccreate>Crear mi espacio</button><button class="btn grow" data-syncjoin>Tengo un código</button></div>`}
+          <div class="hr"></div>
+          <b>👫 Lista de la compra compartida</b>
+          ${s.shareCode ? `<p class="small muted">Compartida en directo.</p><div class="row wrap" style="gap:8px"><button class="btn grow" data-shareinvite>Invitar de nuevo</button><button class="btn danger grow" data-shareoff>Dejar de compartir</button></div>`
+          : '<p class="small muted">Tu pareja verá y editará la misma lista desde su Mi Día.</p><button class="btn block" data-sharecreate>Compartir con alguien</button>'}` : ''}
+      </div>
+
       <div class="card">
         <h2>☁️ Copia en Google Drive</h2>
         <p class="small muted" style="margin-top:0">Guarda una copia automática en tu Google Drive (archivo «mi-dia-copia.json») cada vez que abres la app, como mucho cada 12 horas. ${s.lastDriveBackup ? `Última copia: ${new Date(s.lastDriveBackup).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}</p>
@@ -84,7 +111,79 @@ export default {
         </div>
         <button class="btn danger block" data-reset style="margin-top:8px">Borrar todos los datos</button>
       </div>
-      <p class="small muted" style="text-align:center">Mi Día · v3.0</p>`;
+      <p class="small muted" style="text-align:center">Mi Día · v4.0</p>`;
+
+    // ---------- Sincronización ----------
+    const fromSync = { fromSync: true };
+    const setSync = (fn) => update(fn, fromSync); // los ajustes de sincronización no cuentan como cambio de datos
+    const joinLink = (key, code) => `${location.origin}${location.pathname}#/ajustes?${key}=${code}&u=${encodeURIComponent(s.syncUrl)}&k=${encodeURIComponent(s.syncKey)}`;
+    const shareText = async (title, text) => {
+      try {
+        if (navigator.share) await navigator.share({ title, text });
+        else { await navigator.clipboard.writeText(text); toast('Copiado al portapapeles'); }
+      } catch {}
+    };
+    const runSync = () => S.syncNow().then(() => { toast('🔄 Sincronizado'); rerender(); }).catch((e) => { toast(e.message); rerender(); });
+    view.querySelector('[name=surl]').onchange = (e) => { setSync((d) => (d.settings.syncUrl = e.target.value.trim())); rerender(); };
+    view.querySelector('[name=skey]').onchange = (e) => { setSync((d) => (d.settings.syncKey = e.target.value.trim())); rerender(); };
+    view.querySelector('[data-copysql]').onclick = () => navigator.clipboard.writeText(S.SETUP_SQL).then(() => toast('SQL copiado: pégalo en Supabase')).catch(() => toast('No se pudo copiar'));
+    view.querySelector('[data-synccreate]')?.addEventListener('click', () => {
+      setSync((d) => { d.settings.syncCode = S.newCode(); d.settings.syncPulledAt = 0; });
+      runSync();
+    });
+    const join = (code) => {
+      // Al unirse, los datos del espacio mandan sobre los de este dispositivo
+      setSync((d) => { d.settings.syncCode = code; d.settings.syncPulledAt = 0; d.modifiedAt = 0; });
+      runSync();
+    };
+    view.querySelector('[data-syncjoin]')?.addEventListener('click', () => {
+      const sh = sheet({ title: 'Unirme a mi espacio', body: '<form><label class="field"><span>Código</span><input class="input" name="code" required autocomplete="off"></label><p class="small warn-text">Los datos de este dispositivo se sustituirán por los del espacio.</p><button class="btn primary block">Unirme</button></form>' });
+      sh.el.querySelector('form').onsubmit = (e) => { e.preventDefault(); const c = e.target.code.value.trim(); if (c.length < 24) return toast('Código no válido'); sh.close(); join(c); };
+    });
+    view.querySelector('[data-syncnow]')?.addEventListener('click', runSync);
+    view.querySelector('[data-adddevice]')?.addEventListener('click', () =>
+      shareText('Mi Día', `Abre este enlace en tu otro dispositivo (¡no lo compartas con nadie, da acceso a todos tus datos!):\n${joinLink('espacio', s.syncCode)}`));
+    view.querySelector('[data-syncoff]')?.addEventListener('click', async () => {
+      if (!(await confirmSheet('Este dispositivo dejará de sincronizar. Los datos se quedan aquí y en el espacio.', 'Dejar de sincronizar'))) return;
+      setSync((d) => { d.settings.syncCode = ''; d.settings.syncPulledAt = 0; });
+      rerender();
+    });
+    const invite = (code) => shareText('Lista de la compra compartida', `🛒 Compartamos la lista de la compra en Mi Día. Abre este enlace (instala la app si no la tienes):\n${joinLink('lista', code)}`);
+    view.querySelector('[data-sharecreate]')?.addEventListener('click', () => {
+      const code = S.newCode();
+      setSync((d) => (d.settings.shareCode = code));
+      S.syncNow().catch(() => {});
+      invite(code);
+      rerender();
+    });
+    view.querySelector('[data-shareinvite]')?.addEventListener('click', () => invite(s.shareCode));
+    view.querySelector('[data-shareoff]')?.addEventListener('click', async () => {
+      if (!(await confirmSheet('Dejarás de ver los cambios de la otra persona. Tu lista se queda como está.', 'Dejar de compartir'))) return;
+      setSync((d) => (d.settings.shareCode = ''));
+      rerender();
+    });
+    // Enlaces de invitación: #/ajustes?espacio=CODIGO&u=URL&k=CLAVE  o  ?lista=CODIGO…
+    const params = new URLSearchParams(location.hash.split('?')[1] || '');
+    if (params.get('espacio') || params.get('lista')) {
+      history.replaceState(null, '', '#/ajustes');
+      const isList = !!params.get('lista');
+      const code = params.get('lista') || params.get('espacio');
+      const sh = sheet({
+        title: isList ? '👫 Lista de la compra compartida' : '📱 Sincronizar este dispositivo',
+        body: `<p>${isList ? 'Te han invitado a compartir la lista de la compra. Tus productos se juntarán con los de la otra persona.' : 'Este dispositivo se unirá a tu espacio. <b>Los datos de aquí se sustituirán</b> por los del espacio.'}</p>
+          <button class="btn primary block" data-ok>${isList ? 'Compartir lista' : 'Unirme'}</button>`,
+      });
+      sh.el.querySelector('[data-ok]').onclick = () => {
+        setSync((d) => {
+          if (params.get('u')) d.settings.syncUrl = params.get('u');
+          if (params.get('k')) d.settings.syncKey = params.get('k');
+          if (isList) d.settings.shareCode = code;
+        });
+        sh.close();
+        if (isList) runSync();
+        else join(code);
+      };
+    }
 
     view.querySelector('[data-lock]').onchange = async (e) => {
       const msg = view.querySelector('[data-lockmsg]');

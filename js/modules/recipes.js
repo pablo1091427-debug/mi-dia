@@ -3,7 +3,7 @@ import { db, update } from '../store.js';
 import { esc, uid, toast, confirmSheet } from '../utils.js';
 import { imageToBase64, tabsHtml, bindTabs } from '../ui.js';
 import { askJSON, imageBlock, objSchema, hasKey } from '../ai.js';
-import { guessAisle } from './shopping.js';
+import { shopAdd } from './shopping.js';
 
 const SCHEMA = objSchema({
   recetas: {
@@ -87,8 +87,8 @@ export default {
     view.querySelectorAll('[data-shop]').forEach((b) => (b.onclick = () => {
       const r = list[+b.dataset.shop];
       const items = r.ingredientes.filter((x) => !x.lo_tengo).map((x) => x.nombre);
-      update((d) => items.forEach((text) => d.shopping.push({ id: uid(), text, cat: guessAisle(text), done: false })));
-      toast(`🛒 ${items.length} ingredientes añadidos a la compra`);
+      const fresh = shopAdd(items);
+      toast(`🛒 ${fresh.length} ingredientes añadidos a la compra`);
     }));
     view.querySelectorAll('[data-save]').forEach((b) => (b.onclick = () => {
       update((d) => d.recipes.unshift({ id: uid(), ...results[+b.dataset.save] }));

@@ -32,6 +32,15 @@ const defaults = () => ({
   // Ocio
   media: [],          // {id, type: peli|serie|libro, title, status: pendiente|en curso|terminado, rating, notes, updated}
   recipes: [],        // recetas guardadas {id, title, time, ingredients[], steps[]}
+  // v4
+  reports: [],        // informes mensuales {ym, stats, text, created}
+  splitGroups: [],    // gastos compartidos {id, name, members[], expenses: [{id, desc, amount, payer, among[], date}]}
+  voiceNotes: [],     // {id, date, title, transcript, summary, actions[]}
+  car: { fuel: [], service: [] }, // repostajes {id,date,km,liters,price,full} · mantenimiento {id,date,km,what,cost}
+  cares: [],          // cuidados recurrentes {id, subject, emoji, what, everyDays, last}
+  diary: {},          // {'AAAA-MM-DD': {text, mood 1-5}}
+  shoppingDeleted: {},// borrados de la compra para sincronizar {id: marca de tiempo}
+  modifiedAt: 0,      // última modificación local (para sincronizar)
   chat: [],           // {role, content, actions}
   settings: {
     theme: 'auto',
@@ -46,6 +55,13 @@ const defaults = () => ({
     driveBackup: false,
     driveFileId: '',
     lastDriveBackup: 0,
+    // Sincronización (Supabase)
+    syncUrl: '',
+    syncKey: '',
+    syncCode: '',       // espacio personal: todos tus dispositivos
+    syncPulledAt: 0,
+    shareCode: '',      // lista de la compra compartida (p. ej. con tu pareja)
+    lastReport: '',     // último mes con informe generado (AAAA-MM)
   },
 });
 
@@ -66,7 +82,9 @@ const listeners = new Set();
 
 export const db = () => data;
 
-export function save() {
+// fromSync: los datos vienen de otro dispositivo; no marcar como modificación local
+export function save({ fromSync = false } = {}) {
+  if (!fromSync) data.modifiedAt = Date.now();
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch (e) {
@@ -75,9 +93,9 @@ export function save() {
   listeners.forEach((fn) => fn(data));
 }
 
-export function update(fn) {
+export function update(fn, opts) {
   fn(data);
-  save();
+  save(opts);
 }
 
 export function subscribe(fn) {
@@ -86,22 +104,22 @@ export function subscribe(fn) {
 }
 
 // Ajustes propios de este móvil que no viajan en las copias de seguridad
-const DEVICE_ONLY = ['anthropicKey', 'lock', 'lockCredId', 'googleConnected'];
+const DEVICE_ONLY = ['anthropicKey', 'lock', 'lockCredId', 'googleConnected', 'syncUrl', 'syncKey', 'syncCode', 'syncPulledAt', 'shareCode', 'theme'];
 
 export function exportJSON() {
   const settings = { ...data.settings };
   DEVICE_ONLY.forEach((k) => delete settings[k]);
-  return JSON.stringify({ app: 'mi-dia', version: 2, exported: new Date().toISOString(), data: { ...data, settings } });
+  return JSON.stringify({ app: 'mi-dia', version: 3, exported: new Date().toISOString(), data: { ...data, settings } });
 }
 
-export function importJSON(text) {
-  const parsed = JSON.parse(text);
+export function importJSON(text, { fromSync = false } = {}) {
+  const parsed = typeof text === 'string' ? JSON.parse(text) : text;
   const incoming = parsed.data || parsed;
   if (typeof incoming !== 'object' || !incoming.settings) throw new Error('El archivo no es una copia de Mi Día');
   const base = defaults();
   const keep = Object.fromEntries(DEVICE_ONLY.map((k) => [k, data.settings[k]]));
   data = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings, ...keep } };
-  save();
+  save({ fromSync });
 }
 
 export function resetAll() {

@@ -11,7 +11,11 @@ import { addDeadline, dueSoon, DL_CATS } from './deadlines.js';
 import { nextTrip } from './trips.js';
 import { waterToday, addWater, logWeight, logSleep } from './health.js';
 import { addMedia, MEDIA_TYPES } from './media.js';
-import { guessAisle } from './shopping.js';
+import { writeDiary, MOODS } from './diary.js';
+import { addFuel } from './car.js';
+import { markCare, dueCares } from './cares.js';
+import { forecast } from './expenses.js';
+import { shopAdd, shopSetDone, pendingItems } from './shopping.js';
 import { addReminder, pendingReminders, whenLabel } from './reminders.js';
 import { cachedWeather, wInfo } from './weather.js';
 
@@ -51,6 +55,12 @@ export function appContext() {
   if (tasks.length) lines.push(`Tareas pendientes: ${tasks.map((t) => `${t.text}${t.due ? ` (límite ${t.due})` : ''}${t.project ? ` [${t.project}]` : ''}`).join('; ')}.`);
   const dls = dueSoon();
   if (dls.length) lines.push(`Vencimientos próximos: ${dls.map((x) => `${x.name} el ${x.date}`).join('; ')}.`);
+  const fc = forecast();
+  if (fc) lines.push(`Previsión a fin de mes: gastará ${fmtMoney(fc.spent)}${fin.income ? ` y le quedarán ${fmtMoney(fc.balance)}` : ''}.`);
+  const cares = dueCares();
+  if (cares.length) lines.push(`Cuidados que tocan hoy: ${cares.map((c) => `${c.what} (${c.subject})`).join('; ')}.`);
+  if (d.splitGroups.length) lines.push(`Grupos de gastos compartidos: ${d.splitGroups.map((g) => `${g.name} (${g.members.join(', ')})`).join('; ')}.`);
+  if (d.diary[dkey()]) lines.push(`Diario de hoy: ${d.diary[dkey()].text}`);
   const trip = nextTrip();
   if (trip) lines.push(`Próximo viaje: ${trip.dest} del ${trip.from} al ${trip.to}.`);
   lines.push(`Salud hoy: ${waterToday()}/${d.settings.waterGoal || 8} vasos de agua${d.sleep[dkey()] !== undefined ? `, durmió ${d.sleep[dkey()]} h` : ''}${d.weights.length ? `, último peso ${d.weights.at(-1).kg} kg (${d.weights.at(-1).date})` : ''}.`);
@@ -185,6 +195,26 @@ const TOOLS = [
     input_schema: obj({ peso_kg: { type: 'number' }, vasos_agua: { type: 'integer' }, horas_sueno: { type: 'number' }, fecha: DATE }, []),
   },
   {
+    name: 'escribir_diario',
+    description: 'Guarda la entrada del diario de un día (una línea) y/o su estado de ánimo.',
+    input_schema: obj({ texto: { type: 'string' }, animo: { type: 'integer', enum: [1, 2, 3, 4, 5], description: '1 muy mal … 5 genial' }, fecha: DATE }, []),
+  },
+  {
+    name: 'registrar_repostaje',
+    description: 'Apunta un repostaje del coche (también lo añade como gasto de transporte).',
+    input_schema: obj({ litros: { type: 'number' }, importe: { type: 'number' }, km: { type: 'integer', description: 'Km del cuentakilómetros, si los dice' }, lleno: { type: 'boolean' }, fecha: DATE }, ['litros', 'importe']),
+  },
+  {
+    name: 'marcar_cuidado',
+    description: 'Marca como hecho un cuidado recurrente (regar plantas, pipeta del perro, cambiar sábanas…).',
+    input_schema: obj({ texto: { type: 'string', description: 'Qué se ha hecho o de quién, p. ej. «regar» o «Toby»' } }, ['texto']),
+  },
+  {
+    name: 'anadir_gasto_compartido',
+    description: 'Apunta un gasto en un grupo de gastos compartidos (piso, viaje…), repartido entre los indicados o entre todos.',
+    input_schema: obj({ grupo: { type: 'string' }, concepto: { type: 'string' }, importe: { type: 'number' }, pago: { type: 'string', description: 'Quién pagó' }, entre: { type: 'array', items: { type: 'string' }, description: 'Vacío = todos' } }, ['grupo', 'concepto', 'importe', 'pago']),
+  },
+  {
     name: 'anadir_ocio',
     description: 'Añade una película, serie o libro a su lista.',
     input_schema: obj({
@@ -235,18 +265,14 @@ async function runTool(name, i) {
     case 'anadir_compra': {
       const items = (i.productos || []).map((s) => String(s).trim()).filter(Boolean);
       need(items.length, 'No hay productos');
-      update((d) => items.forEach((text) => d.shopping.push({ id: uid(), text, cat: guessAisle(text), done: false })));
-      return { result: `Añadidos: ${items.join(', ')}.`, label: `🛒 ${items.join(', ')}` };
+      const fresh = shopAdd(items);
+      return { result: fresh.length ? `Añadidos: ${fresh.join(', ')}.${fresh.length < items.length ? ' El resto ya estaba en la lista.' : ''}` : 'Ya estaba todo en la lista.', label: fresh.length ? `🛒 ${fresh.join(', ')}` : undefined };
     }
     case 'marcar_comprado': {
       const wanted = (i.productos || []).map(norm);
-      const hits = [];
-      update((d) => d.shopping.forEach((it) => {
-        if (!it.done && wanted.some((w) => norm(it.text).includes(w) || w.includes(norm(it.text)))) {
-          it.done = true;
-          hits.push(it.text);
-        }
-      }));
+      const found = pendingItems().filter((it) => wanted.some((w) => norm(it.text).includes(w) || w.includes(norm(it.text))));
+      const hits = found.map((it) => it.text);
+      if (found.length) shopSetDone(found.map((it) => it.id));
       return { result: hits.length ? `Marcados como comprados: ${hits.join(', ')}.` : 'No encontré esos productos en la lista.', label: hits.length ? `✔️ Comprado: ${hits.join(', ')}` : undefined };
     }
     case 'registrar_deporte': {
@@ -312,6 +338,34 @@ async function runTool(name, i) {
       if (i.horas_sueno !== undefined && i.horas_sueno !== null) { logSleep(Number(i.horas_sueno), date); done.push(`😴 ${i.horas_sueno} h`); }
       need(done.length, 'No hay nada que registrar');
       return { result: 'Registrado.', label: done.join(' · ') };
+    }
+    case 'escribir_diario': {
+      need(i.texto || i.animo, 'Nada que guardar');
+      writeDiary({ text: (i.texto || '').trim(), mood: i.animo || 0, date: isDate(i.fecha) ? i.fecha : dkey() });
+      return { result: 'Diario guardado.', label: `📔 ${i.animo ? MOODS[i.animo - 1] + ' ' : ''}${(i.texto || '').slice(0, 40)}` };
+    }
+    case 'registrar_repostaje': {
+      addFuel({ date: isDate(i.fecha) ? i.fecha : dkey(), km: i.km || 0, liters: Number(i.litros), price: Number(i.importe), full: i.lleno !== false });
+      return { result: 'Repostaje apuntado (y añadido a gastos).', label: `⛽ ${i.litros} L · ${fmtMoney(i.importe)}` };
+    }
+    case 'marcar_cuidado': {
+      const q = norm(i.texto || '');
+      const c = db().cares.find((x) => norm(`${x.what} ${x.subject}`).includes(q) || q.includes(norm(x.what)));
+      need(c, `No encontré ese cuidado. Cuidados: ${db().cares.map((x) => `${x.what} (${x.subject})`).join('; ') || 'ninguno'}`);
+      markCare(c.id);
+      return { result: `Marcado «${c.what}» de ${c.subject}. Próxima vez en ${c.everyDays} días.`, label: `${c.emoji} ${c.what}` };
+    }
+    case 'anadir_gasto_compartido': {
+      const g = db().splitGroups.find((x) => norm(x.name).includes(norm(i.grupo || '')) || norm(i.grupo || '').includes(norm(x.name)));
+      need(g, `No existe ese grupo. Grupos: ${db().splitGroups.map((x) => x.name).join(', ') || 'ninguno'}`);
+      const match = (name) => g.members.find((m) => norm(m) === norm(name)) || g.members.find((m) => norm(m).includes(norm(name)));
+      const payer = match(i.pago || '');
+      need(payer, `«${i.pago}» no está en el grupo. Miembros: ${g.members.join(', ')}`);
+      const among = (i.entre || []).length ? i.entre.map(match).filter(Boolean) : g.members;
+      const amount = Math.round(Number(i.importe) * 100) / 100;
+      need(amount > 0 && among.length, 'Importe o reparto no válido');
+      update((d) => d.splitGroups.find((x) => x.id === g.id).expenses.push({ id: uid(), desc: i.concepto, amount, payer, among, date: dkey() }));
+      return { result: `Añadido a «${g.name}».`, label: `👥 ${g.name}: ${i.concepto} ${fmtMoney(amount)}` };
     }
     case 'anadir_ocio': {
       const m = addMedia({ type: i.tipo, title: i.titulo, status: i.estado || 'pendiente', rating: i.valoracion || 0 });

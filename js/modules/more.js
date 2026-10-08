@@ -1,26 +1,35 @@
 const GROUPS = [
   ['Organización', [
+    ['hoy', '🎯', 'Modo Hoy'],
     ['recordatorios', '⏰', 'Recordatorios'],
     ['tareas', '✔️', 'Tareas'],
     ['vencimientos', '📌', 'Vencimientos'],
     ['compra', '🛒', 'Compra'],
     ['cumples', '🎂', 'Cumpleaños'],
+    ['notasvoz', '🎙️', 'Notas de voz'],
+    ['diario', '📔', 'Diario'],
     ['asistente', '🤖', 'Asistente'],
   ]],
   ['Dinero', [
     ['gastos', '💶', 'Finanzas'],
+    ['compartidos', '👥', 'Compartidos'],
+    ['informes', '📊', 'Informes'],
   ]],
   ['Salud', [
     ['gimnasio', '🏋️', 'Gimnasio'],
     ['salud', '❤️', 'Salud'],
     ['habitos', '✅', 'Hábitos'],
   ]],
+  ['Casa y coche', [
+    ['cuidados', '🌱', 'Cuidados'],
+    ['coche', '🚗', 'Coche'],
+    ['cocina', '🍳', 'Cocina'],
+  ]],
   ['Ocio y salir', [
     ['tiempo', '🌤️', 'Tiempo'],
     ['bares', '🍺', 'Cerca de mí'],
     ['lugares', '⭐', 'Mis lugares'],
     ['planes', '🎉', 'Planes finde'],
-    ['cocina', '🍳', 'Cocina'],
     ['ocio', '🎬', 'Pelis y libros'],
     ['viajes', '✈️', 'Viajes'],
   ]],

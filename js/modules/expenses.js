@@ -57,6 +57,19 @@ export function monthSummary(ym = curYm()) {
   return { income, spent, variable, fixed, balance: income - spent, rate: income > 0 ? (income - spent) / income : null, byCat, over };
 }
 
+// Previsión de fin de mes según el ritmo de gasto variable de los días que llevas
+export function forecast(ym = curYm()) {
+  if (ym !== curYm()) return null;
+  const now = new Date();
+  const day = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const s = monthSummary(ym);
+  if (day < 3 && s.variable === 0) return null;
+  const projVariable = (s.variable / day) * daysInMonth;
+  const spent = projVariable + s.fixed;
+  return { spent, balance: s.income - spent, perDay: s.variable / day, daysLeft: daysInMonth - day, safePerDay: s.income ? Math.max(0, (s.income - s.fixed - s.variable) / Math.max(1, daysInMonth - day)) : null };
+}
+
 // ---------- Formularios ----------
 export function openExpenseSheet(onSaved, prefill = {}) {
   let cat = prefill.cat || 'super';
@@ -256,6 +269,7 @@ function financeReport(ym) {
     `Ingresos fijos: ${d.fixedIncomes.map((s) => `${s.name} ${fmtMoney(s.amount)}`).join(', ') || 'ninguno'}.`,
     `Presupuestos: ${Object.entries(d.budgets).filter(([, v]) => v > 0).map(([c, v]) => `${catOf(c).name} ${fmtMoney(v)}`).join(', ') || 'ninguno'}.`,
     `Metas de ahorro: ${d.goals.map((g) => `${g.name}: ${fmtMoney(g.saved)} de ${fmtMoney(g.target)}${g.deadline ? ' para ' + g.deadline : ''}`).join('; ') || 'ninguna'}.`,
+    forecast(ym) ? `Previsión a fin de mes: gastará ${fmtMoney(forecast(ym).spent)} y le quedarán ${fmtMoney(forecast(ym).balance)}.` : '',
   ].join('\n');
 }
 
@@ -296,6 +310,7 @@ export default {
     let body = '';
 
     if (tab === 'resumen') {
+      const fc = forecast(ym);
       const hist = Array.from({ length: 6 }, (_, i) => shiftYm(ym, i - 5)).map((x) => {
         const ms = monthSummary(x);
         return { label: ymLabel(x).slice(0, 3), a: round2(ms.income), b: round2(ms.spent) };
@@ -312,6 +327,10 @@ export default {
           ${s.fixed ? `<p class="small muted" style="margin:8px 0 0">Incluye ${fmtMoney(s.fixed)} de gastos fijos.</p>` : ''}
           ${s.over.length ? `<p class="small warn-text" style="margin:8px 0 0">⚠️ Te has pasado del presupuesto en: ${s.over.map((c) => catOf(c).name).join(', ')}</p>` : ''}
         </div>
+        ${fc ? `<div class="card"><h2>🔮 Previsión a fin de mes</h2>
+          <div class="row"><div class="grow"><div class="stat-label">Gastarás unos</div><div class="stat" style="font-size:20px">${fmtMoney(fc.spent)}</div></div>
+          ${s.income ? `<div class="grow"><div class="stat-label">Te quedarán</div><div class="stat" style="font-size:20px;color:${fc.balance < 0 ? 'var(--danger)' : 'var(--ok)'}">${fmtMoney(fc.balance)}</div></div>` : ''}</div>
+          <p class="small muted" style="margin:8px 0 0">Vas a ${fmtMoney(fc.perDay)}/día en gastos variables. ${fc.safePerDay !== null ? `Para no quedarte en negativo puedes gastar hasta ${fmtMoney(fc.safePerDay)}/día los ${fc.daysLeft} días que quedan.` : ''}</p></div>` : ''}
         <div class="card"><h2>Últimos 6 meses</h2>${pairBarChart(hist, { aName: 'Ingresos', bName: 'Gastos' })}</div>
         <div class="card"><h2>Gasto por categoría</h2>
           ${cats.length ? cats.map(([c, v]) => {
@@ -337,6 +356,10 @@ export default {
             <button class="btn primary grow" data-addexp>− Gasto</button>
             <button class="btn grow" data-addinc>+ Ingreso</button>
             <label class="btn grow">📷 Ticket<input type="file" accept="image/*" capture="environment" data-ticket hidden></label>
+          </div>
+          <div class="row wrap" style="gap:8px;margin-top:8px">
+            <button class="btn grow" data-bank>🏦 Importar extracto</button>
+            <a class="btn grow" href="#/compartidos">👥 Gastos compartidos</a>
           </div>
         </div>
         <div class="card">${moves.length ? `<ul class="list">${moves.map((e) => {
@@ -400,6 +423,7 @@ export default {
     view.querySelector('[data-addexp]')?.addEventListener('click', () => openExpenseSheet(rerender));
     view.querySelector('[data-addinc]')?.addEventListener('click', () => openIncomeSheet(rerender));
     view.querySelector('[data-ticket]')?.addEventListener('change', (e) => e.target.files[0] && scanTicket(e.target.files[0], rerender));
+    view.querySelector('[data-bank]')?.addEventListener('click', async () => (await import('./bankimport.js')).openBankImport(rerender));
     view.querySelector('[data-analyze]')?.addEventListener('click', () => analyze(ym, view.querySelector('#analysis')));
     view.querySelectorAll('[data-addgoal]').forEach((b) => (b.onclick = () => openGoalSheet(rerender)));
     view.querySelectorAll('[data-goal]').forEach((c) => (c.onclick = () => openGoalSheet(rerender, db().goals.find((g) => g.id === c.dataset.goal))));

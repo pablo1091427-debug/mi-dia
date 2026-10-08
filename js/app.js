@@ -23,8 +23,16 @@ import trips from './modules/trips.js';
 import media from './modules/media.js';
 import plans from './modules/plans.js';
 import recipes from './modules/recipes.js';
+import split from './modules/split.js';
+import voice from './modules/voice.js';
+import car from './modules/car.js';
+import cares from './modules/cares.js';
+import diary from './modules/diary.js';
+import reports, { maybeMonthlyReport } from './modules/reports.js';
+import today from './modules/today.js';
 import { initLock } from './lock.js';
 import { autoBackup } from './backup.js';
+import { initSync } from './sync.js';
 
 // Pestañas principales (barra inferior) y módulos secundarios (desde "Más")
 const TABS = ['inicio', 'calendario', 'notas', 'deporte', 'mas'];
@@ -34,6 +42,7 @@ const routes = {
   cumples: birthdays, lugares: places, asistente: assistant, ajustes: settings, recordatorios: reminders,
   finanzas: expenses, tareas: tasks, vencimientos: deadlines, gimnasio: gym, salud: health, viajes: trips,
   ocio: media, planes: plans, cocina: recipes,
+  compartidos: split, notasvoz: voice, coche: car, cuidados: cares, diario: diary, informes: reports, hoy: today,
 };
 
 let cleanup = null;
@@ -70,6 +79,7 @@ function render() {
   $('#settings-btn').hidden = name === 'ajustes';
   const activeTab = isTab ? name : 'mas';
   $$('#bottom-nav a').forEach((a) => a.classList.toggle('active', a.dataset.route === activeTab));
+  document.body.classList.toggle('focus-mode', !!mod.focus);
 
   view.innerHTML = '';
   cleanup = mod.render(view, { rerender: render, go }) || null;
@@ -92,6 +102,14 @@ applyTheme();
 initLock();
 render();
 autoBackup();
+initSync();
+maybeMonthlyReport().catch(() => {});
+
+// Llegan cambios de otro dispositivo: refrescar la pantalla si no estás rellenando un formulario
+window.addEventListener('midia:synced', () => {
+  const typing = document.activeElement?.matches?.('input, textarea, select');
+  if (!document.querySelector('.sheet-backdrop') && !typing) render();
+});
 
 // Revisar recordatorios al abrir, cada 30 s y al volver a la app
 checkReminders();

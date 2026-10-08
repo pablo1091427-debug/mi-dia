@@ -12,6 +12,8 @@ import { fetchWeather, wInfo } from './weather.js';
 import { pendingReminders, isOverdue, setDone, whenLabel as remWhen, openReminderSheet } from './reminders.js';
 import { openTasks, dueLabel } from './tasks.js';
 import { dueSoon, daysLeft, leftLabel } from './deadlines.js';
+import { dueCares, markCare } from './cares.js';
+import { forecast } from './expenses.js';
 import { nextTrip, daysUntil } from './trips.js';
 import { waterToday, addWater } from './health.js';
 import { monthSummary } from './expenses.js';
@@ -67,6 +69,9 @@ export default {
     const rems = pendingReminders().filter((r) => r.date <= limit).slice(0, 5);
     const tasks = openTasks().filter((t) => t.due && t.due <= today).slice(0, 5);
     const dls = dueSoon().slice(0, 3);
+    const cares = dueCares().slice(0, 4);
+    const fc = forecast();
+    const diaryPending = new Date().getHours() >= 20 && !d.diary[today];
     const trip = nextTrip();
     const water = waterToday();
     const fin = monthSummary();
@@ -75,8 +80,10 @@ export default {
     view.innerHTML = `
       <div style="margin:2px 4px 14px">
         <div style="font-size:24px;font-weight:800">${greeting()} 👋</div>
-        <div class="muted">${cap(fmtLong(new Date()))}</div>
+        <div class="row"><span class="muted grow">${cap(fmtLong(new Date()))}</span><a class="btn small" href="#/hoy">🎯 Modo Hoy</a></div>
       </div>
+
+      ${diaryPending ? `<a class="card row" href="#/diario" style="text-decoration:none;color:inherit"><span style="font-size:24px">📔</span><span class="grow">¿Qué tal ha ido el día? Escribe una línea en tu diario.</span><span class="muted">›</span></a>` : ''}
 
       ${hasKey() ? `<div class="card">
         <h2>☀️ Tu resumen <button class="link btn small" data-speak style="margin-left:auto;background:none;color:var(--accent)" aria-label="Leer en voz alta">🔊 Escuchar</button></h2>
@@ -88,9 +95,10 @@ export default {
         <span class="muted small">🌤️ Cargando el tiempo…</span>
       </a>
 
-      ${tasks.length || dls.length ? `<div class="card">
+      ${tasks.length || dls.length || cares.length ? `<div class="card">
         <h2>🔥 Urgente</h2><ul class="list">
         ${tasks.map((t) => `<li><span class="emoji">✔️</span><a class="grow ellipsis" href="#/tareas" style="color:inherit;text-decoration:none">${esc(t.text)}</a><span class="small ${t.due < today ? 'warn-text' : 'muted'}">${dueLabel(t)}</span></li>`).join('')}
+        ${cares.map((c) => `<li><span class="emoji">${esc(c.emoji)}</span><span class="grow ellipsis">${esc(c.what)} <span class="small muted">${esc(c.subject)}</span></span><button class="btn small" data-care="${c.id}">Hecho</button></li>`).join('')}
         ${dls.map((x) => `<li><span class="emoji">📌</span><a class="grow ellipsis" href="#/vencimientos" style="color:inherit;text-decoration:none">${esc(x.name)}</a><span class="small ${daysLeft(x) <= 7 ? 'warn-text' : 'muted'}">${leftLabel(daysLeft(x))}</span></li>`).join('')}
         </ul></div>` : ''}
 
@@ -133,7 +141,7 @@ export default {
       </div>
 
       <div class="grid-2">
-        <a class="card" href="#/gastos" style="text-decoration:none;color:inherit"><div class="stat-label">💶 Balance del mes</div><div class="stat" style="font-size:20px;color:${fin.balance < 0 ? 'var(--danger)' : 'inherit'}">${fin.income ? (fin.balance >= 0 ? '+' : '') + fmtMoney(fin.balance) : '−' + fmtMoney(fin.spent)}</div><div class="small muted">${fin.income ? `gastado ${fmtMoney(fin.spent)}` : 'gastado'}${fin.over.length ? ' · ⚠️ presupuesto' : ''}</div></a>
+        <a class="card" href="#/gastos" style="text-decoration:none;color:inherit"><div class="stat-label">💶 Balance del mes</div><div class="stat" style="font-size:20px;color:${fin.balance < 0 ? 'var(--danger)' : 'inherit'}">${fin.income ? (fin.balance >= 0 ? '+' : '') + fmtMoney(fin.balance) : '−' + fmtMoney(fin.spent)}</div><div class="small muted">${fc && fin.income ? `🔮 a fin de mes: ${fmtMoney(fc.balance)}` : fin.income ? `gastado ${fmtMoney(fin.spent)}` : 'gastado'}${fin.over.length ? ' · ⚠️ presupuesto' : ''}</div></a>
         <a class="card" href="#/compra" style="text-decoration:none;color:inherit"><div class="stat-label">🛒 Lista de la compra</div><div class="stat" style="font-size:20px">${shop} ${shop === 1 ? 'cosa' : 'cosas'}</div></a>
       </div>
 
@@ -166,6 +174,7 @@ export default {
       const h = new Date().getHours();
       if (!brief && h >= 5 && h < 13) makeBrief(briefBox);
     }
+    view.querySelectorAll('[data-care]').forEach((b) => (b.onclick = () => { markCare(b.dataset.care); rerender(); }));
     view.querySelector('[data-water]').onclick = () => { addWater(1); rerender(); };
 
     // Agenda de hoy (locales + Google si hay sesión)
