@@ -15,7 +15,7 @@ const AISLES = [
   { id: 'otros', name: 'Otros', e: '📦', words: '' },
 ];
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-function guessAisle(text) {
+export function guessAisle(text) {
   const t = norm(text);
   const hit = AISLES.find((a) => a.words && norm(a.words).split(' ').some((w) => w.length > 2 && t.includes(w)));
   return hit ? hit.id : 'otros';
@@ -25,6 +25,7 @@ export const pendingCount = () => db().shopping.filter((i) => !i.done).length;
 
 export default {
   title: 'Lista de la compra',
+  quickAdd: (_, view) => view.querySelector('[name=text]')?.focus(),
   render(view, { rerender }) {
     const { shopping } = db();
     const groups = AISLES.map((a) => ({ ...a, items: shopping.filter((i) => i.cat === a.id) })).filter((g) => g.items.length);

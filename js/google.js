@@ -106,19 +106,25 @@ export async function monthEvents(year, month, { force = false } = {}) {
   return list;
 }
 
-export async function createEvent({ title, date, start, end, allDay, notes }) {
+// reminderMinutes: null = avisos por defecto de tu calendario; número = aviso en el móvil X minutos antes
+export async function createEvent({ title, date, start, end, allDay, notes, reminderMinutes = null, durationMin = 60 }) {
   let body;
   if (allDay) {
     body = { start: { date }, end: { date: dkey(addDays(new Date(date + 'T00:00'), 1)) } };
   } else {
     const s = new Date(`${date}T${start}`);
-    const e = end ? new Date(`${date}T${end}`) : new Date(s.getTime() + 60 * 60 * 1000);
+    let e = end ? new Date(`${date}T${end}`) : null;
+    if (!e || e <= s) e = new Date(s.getTime() + durationMin * 60 * 1000);
     body = { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: e.toISOString(), timeZone: TZ } };
   }
   body.summary = title;
   if (notes) body.description = notes;
-  await api(API, { method: 'POST', body: JSON.stringify(body) });
+  if (reminderMinutes !== null && reminderMinutes !== '' && reminderMinutes !== undefined) {
+    body.reminders = { useDefault: false, overrides: [{ method: 'popup', minutes: Number(reminderMinutes) }] };
+  }
+  const created = await api(API, { method: 'POST', body: JSON.stringify(body) });
   cache.clear();
+  return created?.id;
 }
 
 export async function deleteEvent(id) {

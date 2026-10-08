@@ -9,6 +9,12 @@
   "orientation": "portrait",
   "background_color": "#0f1117",
   "theme_color": "#4f46e5",
+  "shortcuts": [
+    { "name": "Hablar con el asistente", "short_name": "Asistente", "url": "./#/asistente?nuevo=1", "icons": [{ "src": "icons/sc-assistant.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Nuevo recordatorio", "short_name": "Recordatorio", "url": "./#/recordatorios?nuevo=1", "icons": [{ "src": "icons/sc-reminder.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "He entrenado hoy", "short_name": "Deporte", "url": "./#/deporte?nuevo=1", "icons": [{ "src": "icons/sc-sport.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Nueva nota", "short_name": "Nota", "url": "./#/notas?nuevo=1", "icons": [{ "src": "icons/sc-note.png", "sizes": "96x96", "type": "image/png" }] }
+  ],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

@@ -79,6 +79,7 @@ let ym = dkey().slice(0, 7);
 
 export default {
   title: 'Gastos',
+  quickAdd: (rerender) => openExpenseSheet(rerender),
   render(view, { rerender }) {
     const d = db();
     const [y, m] = ym.split('-').map(Number);

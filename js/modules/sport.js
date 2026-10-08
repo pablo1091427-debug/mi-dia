@@ -84,6 +84,7 @@ let vm = new Date().getMonth();
 
 export default {
   title: 'Deporte',
+  quickAdd: (rerender) => openSportSheet(dkey(), rerender),
   render(view, { rerender }) {
     const d = db();
     const st = sportStats();

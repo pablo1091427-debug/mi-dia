@@ -17,6 +17,10 @@ export function itemsForDay(key, googleEvents = []) {
   d.birthdays
     .filter((b) => b.day === date.getDate() && b.month === date.getMonth() + 1)
     .forEach((b) => items.push({ id: b.id, title: `🎂 Cumpleaños de ${b.name}${b.year ? ` (${date.getFullYear() - b.year})` : ''}`, allDay: true, source: 'bday' }));
+  // Recordatorios que no están ya en Google (esos llegan como evento de Google)
+  (d.reminders || [])
+    .filter((r) => r.date === key && !r.done && !r.googleId)
+    .forEach((r) => items.push({ id: r.id, title: `⏰ ${r.text}`, start: r.time, allDay: false, source: 'reminder' }));
   const sp = d.sport[key];
   if (sp) {
     const t = SPORT_TYPES.find((x) => x.id === sp.type) || SPORT_TYPES.at(-1);
@@ -50,6 +54,7 @@ export function bindItems(container, items, onChange) {
 function openEventDetail(ev, onChange) {
   if (ev.source === 'bday') return location.assign('#/cumples');
   if (ev.source === 'sport') return location.assign('#/deporte');
+  if (ev.source === 'reminder') return location.assign('#/recordatorios');
   const s = sheet({
     title: ev.title,
     body: `
@@ -89,6 +94,10 @@ export function openEventSheet(date = dkey(), onSaved) {
           <label class="field grow"><span>Termina</span><input class="input" type="time" name="end" value="11:00"></label>
         </div>
         <label class="field"><span>Notas</span><input class="input" name="notes" placeholder="Opcional"></label>
+        ${toGoogle ? `<label class="field"><span>🔔 Aviso en el móvil</span><select class="input" name="reminder">
+          <option value="">Avisos por defecto de mi calendario</option><option value="0">A la hora del evento</option>
+          <option value="10">10 minutos antes</option><option value="30">30 minutos antes</option><option value="60">1 hora antes</option>
+          <option value="1440">1 día antes</option></select></label>` : ''}
         <p class="small muted">${toGoogle ? '📅 Se guardará en tu Google Calendar.' : G.isConnected() ? '⚠️ La sesión de Google ha caducado: se guardará solo en la app. Pulsa «Reconectar Google» en Calendario para guardarlo allí.' : 'Se guardará en la app. Conecta Google Calendar en Ajustes para sincronizar.'}</p>
         <button class="btn primary block">Guardar</button>
       </form>`,
@@ -105,7 +114,7 @@ export function openEventSheet(date = dkey(), onSaved) {
     const btn = f.querySelector('button');
     btn.disabled = true;
     try {
-      if (toGoogle) await G.createEvent(ev);
+      if (toGoogle) await G.createEvent({ ...ev, reminderMinutes: f.reminder.value === '' ? null : +f.reminder.value });
       else update((d) => d.events.push({ id: uid(), ...ev }));
       s.close();
       toast(toGoogle ? 'Evento creado en Google Calendar' : 'Evento guardado');

@@ -13,6 +13,7 @@ const defaults = () => ({
   shopping: [],       // {id, text, cat, done}
   birthdays: [],      // {id, name, day, month, year}
   places: [],         // {id, name, note, lat, lon, cat}
+  reminders: [],      // {id, text, date, time, done, notified, googleId}
   chat: [],           // {role, content}
   settings: {
     theme: 'auto',

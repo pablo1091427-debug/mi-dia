@@ -58,7 +58,7 @@ export default {
         </div>
         <button class="btn danger block" data-reset style="margin-top:8px">Borrar todos los datos</button>
       </div>
-      <p class="small muted" style="text-align:center">Mi Día · v1.0</p>`;
+      <p class="small muted" style="text-align:center">Mi Día · v2.0</p>`;
 
     const saveField = (name, key) => {
       view.querySelector(`[name=${name}]`).onchange = (e) => {

@@ -183,6 +183,7 @@ textarea.input { resize: vertical; min-height: 120px; }
 .event-bar.google { background: #3b82f6; }
 .event-bar.bday { background: var(--warn); }
 .event-bar.sport { background: var(--ok); }
+.event-bar.reminder { background: var(--danger); }
 
 /* ---------- Heatmap deporte ---------- */
 .heatmap { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; overflow-x: auto; padding-bottom: 6px; }
@@ -245,6 +246,8 @@ textarea.input { resize: vertical; min-height: 120px; }
 .msg { max-width: 85%; padding: 10px 13px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
 .msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
 .msg.assistant { align-self: flex-start; background: var(--surface); box-shadow: var(--shadow); border-bottom-left-radius: 4px; }
+.msg .actions { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.msg .actions span { font-size: 12px; font-weight: 600; background: var(--ok-soft); color: var(--ok); border-radius: 8px; padding: 4px 8px; }
 .chat-input { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); background: var(--bg); padding: 10px 16px; display: flex; gap: 8px; max-width: 720px; margin: 0 auto; z-index: 15; }
 .chat-input textarea { min-height: 44px; height: 44px; resize: none; }
 

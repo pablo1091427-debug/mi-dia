@@ -1,13 +1,13 @@
 // Service worker: guarda la app para que abra al instante y funcione sin conexión.
 // Sube la versión cada vez que cambies archivos para que el móvil descargue la nueva.
-const VERSION = 'mi-dia-v1';
+const VERSION = 'mi-dia-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/store.js', './js/utils.js', './js/google.js',
   './js/modules/home.js', './js/modules/calendar.js', './js/modules/notes.js', './js/modules/sport.js',
   './js/modules/more.js', './js/modules/weather.js', './js/modules/bars.js', './js/modules/expenses.js',
   './js/modules/habits.js', './js/modules/shopping.js', './js/modules/birthdays.js', './js/modules/places.js',
-  './js/modules/assistant.js', './js/modules/settings.js',
+  './js/modules/assistant.js', './js/modules/settings.js', './js/modules/reminders.js',
   './icons/icon-192.png', './icons/icon-512.png',
 ];
 
@@ -36,5 +36,17 @@ self.addEventListener('fetch', (e) => {
         return res;
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('./index.html'))),
+  );
+});
+
+// Al tocar una notificación, abrir (o enfocar) la app en Recordatorios
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const win = list.find((c) => c.url.startsWith(self.registration.scope));
+      if (win) return win.focus().then((w) => w.navigate(self.registration.scope + '#/recordatorios'));
+      return self.clients.openWindow('./#/recordatorios');
+    }),
   );
 });

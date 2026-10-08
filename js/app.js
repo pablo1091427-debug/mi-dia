@@ -14,13 +14,14 @@ import birthdays from './modules/birthdays.js';
 import places from './modules/places.js';
 import assistant from './modules/assistant.js';
 import settings from './modules/settings.js';
+import reminders, { checkReminders } from './modules/reminders.js';
 
 // Pestañas principales (barra inferior) y módulos secundarios (desde "Más")
 const TABS = ['inicio', 'calendario', 'notas', 'deporte', 'mas'];
 const routes = {
   inicio: home, calendario: calendar, notas: notes, deporte: sport, mas: more,
   tiempo: weather, bares: bars, gastos: expenses, habitos: habits, compra: shopping,
-  cumples: birthdays, lugares: places, asistente: assistant, ajustes: settings,
+  cumples: birthdays, lugares: places, asistente: assistant, ajustes: settings, recordatorios: reminders,
 };
 
 let cleanup = null;
@@ -60,6 +61,12 @@ function render() {
 
   view.innerHTML = '';
   cleanup = mod.render(view, { rerender: render, go }) || null;
+
+  // Accesos directos del icono (#/notas?nuevo=1): abrir directamente el formulario
+  if (/[?&]nuevo=1/.test(location.hash) && mod.quickAdd) {
+    history.replaceState(null, '', '#/' + name);
+    mod.quickAdd(render, view);
+  }
 }
 
 $('#back-btn').addEventListener('click', () => {
@@ -71,6 +78,16 @@ window.addEventListener('hashchange', render);
 
 applyTheme();
 render();
+
+// Revisar recordatorios al abrir, cada 30 s y al volver a la app
+checkReminders();
+setInterval(checkReminders, 30_000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    checkReminders();
+    if (current === 'inicio') render();
+  }
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW no registrado', e));

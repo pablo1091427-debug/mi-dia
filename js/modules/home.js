@@ -9,6 +9,7 @@ import { isDone, toggleHabit } from './habits.js';
 import { upcomingBirthdays, whenLabel } from './birthdays.js';
 import { pendingCount } from './shopping.js';
 import { fetchWeather, wInfo } from './weather.js';
+import { pendingReminders, isOverdue, setDone, whenLabel as remWhen, openReminderSheet } from './reminders.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -24,6 +25,9 @@ export default {
     const nextBd = upcomingBirthdays()[0];
     const notes = sortedNotes().slice(0, 3);
     const shop = pendingCount();
+    // Recordatorios vencidos o de hoy/mañana
+    const limit = dkey(new Date(Date.now() + 86400000));
+    const rems = pendingReminders().filter((r) => r.date <= limit).slice(0, 5);
 
     view.innerHTML = `
       <div style="margin:2px 4px 14px">
@@ -39,6 +43,16 @@ export default {
         <h2>📅 Hoy <a class="link" href="#/calendario">Ver calendario</a></h2>
         <div id="today-list"></div>
         <button class="btn small block" data-addevent style="margin-top:8px">+ Evento</button>
+      </div>
+
+      <div class="card">
+        <h2>⏰ Recordatorios <a class="link" href="#/recordatorios">Ver todos</a></h2>
+        ${rems.length ? `<ul class="list">${rems.map((r) => `
+          <li><input type="checkbox" data-rem="${r.id}" style="width:22px;height:22px;accent-color:var(--accent)" aria-label="Hecho">
+            <div class="grow"><div class="ellipsis">${esc(r.text)}</div>
+            <div class="small" style="color:${isOverdue(r) ? 'var(--danger)' : 'var(--muted)'}">${remWhen(r)}</div></div></li>`).join('')}</ul>`
+          : '<div class="muted small">Nada pendiente para hoy ni mañana.</div>'}
+        <button class="btn small block" data-addrem style="margin-top:8px">+ Recordatorio</button>
       </div>
 
       <div class="card">
@@ -75,7 +89,7 @@ export default {
       <div class="tiles">
         <a class="tile" href="javascript:void 0" data-quick="note"><span>📝</span>Nota</a>
         <a class="tile" href="javascript:void 0" data-quick="expense"><span>💶</span>Gasto</a>
-        <a class="tile" href="#/bares"><span>🍺</span>Bares cerca</a>
+        <a class="tile" href="#/asistente?nuevo=1"><span>🎤</span>Díselo a Claude</a>
       </div>`;
 
     // Agenda de hoy (locales + Google si hay sesión)
@@ -109,6 +123,13 @@ export default {
       });
 
     view.querySelector('[data-addevent]').onclick = () => openEventSheet(today, rerender);
+    view.querySelector('[data-addrem]').onclick = () => openReminderSheet(rerender);
+    view.querySelectorAll('[data-rem]').forEach((c) => {
+      c.onchange = () => {
+        setDone(c.dataset.rem);
+        rerender();
+      };
+    });
     view.querySelector('[data-sport]').onclick = () => openSportSheet(today, rerender);
     view.querySelectorAll('[data-h]').forEach((b) => {
       b.onclick = () => {

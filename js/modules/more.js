@@ -2,6 +2,7 @@ const TILES = [
   ['tiempo', '🌤️', 'Tiempo'],
   ['bares', '🍺', 'Cerca de mí'],
   ['gastos', '💶', 'Gastos'],
+  ['recordatorios', '⏰', 'Recordatorios'],
   ['habitos', '✅', 'Hábitos'],
   ['compra', '🛒', 'Compra'],
   ['cumples', '🎂', 'Cumpleaños'],

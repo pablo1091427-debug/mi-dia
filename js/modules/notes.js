@@ -59,6 +59,7 @@ export const sortedNotes = () =>
 
 export default {
   title: 'Notas',
+  quickAdd: (rerender) => openNoteEditor(null, rerender),
   render(view, { rerender }) {
     view.innerHTML = `
       <input class="input" type="search" placeholder="🔍 Buscar notas" value="${esc(query)}" style="margin-bottom:12px" data-q>
