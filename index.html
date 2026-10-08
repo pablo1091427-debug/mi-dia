@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mi Día</title>
+  <meta name="description" content="Mi app personal: calendario, notas, deporte, tiempo, bares cercanos y más.">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="back-btn" aria-label="Volver" hidden>‹</button>
+    <h1 id="page-title">Mi Día</h1>
+    <span class="topbar-spacer"></span>
+    <button class="icon-btn" id="settings-btn" aria-label="Ajustes">⚙️</button>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav class="bottom-nav" id="bottom-nav">
+    <a href="#/inicio" data-route="inicio"><span>🏠</span>Inicio</a>
+    <a href="#/calendario" data-route="calendario"><span>📅</span>Calendario</a>
+    <a href="#/notas" data-route="notas"><span>📝</span>Notas</a>
+    <a href="#/deporte" data-route="deporte"><span>🏋️</span>Deporte</a>
+    <a href="#/mas" data-route="mas"><span>☰</span>Más</a>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

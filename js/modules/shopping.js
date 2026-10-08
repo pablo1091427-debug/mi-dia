@@ -1,0 +1,79 @@
+import { db, update } from '../store.js';
+import { esc, uid, toast } from '../utils.js';
+
+// Secciones del súper, en el orden habitual de recorrido
+const AISLES = [
+  { id: 'fruta', name: 'Fruta y verdura', e: '🥦', words: 'manzana platano plátano naranja limon limón tomate lechuga cebolla patata ajo pimiento zanahoria fruta verdura aguacate pepino fresa uva pera calabacin calabacín espinaca champiñon champiñón' },
+  { id: 'pan', name: 'Panadería', e: '🥖', words: 'pan barra baguette bolleria bollería croissant tostada' },
+  { id: 'carne', name: 'Carne y pescado', e: '🥩', words: 'pollo carne ternera cerdo filete hamburguesa salchicha pescado salmon salmón merluza atun atún gamba jamon jamón pavo chorizo lomo' },
+  { id: 'lacteos', name: 'Lácteos y huevos', e: '🥛', words: 'leche yogur yogures queso mantequilla nata huevo huevos kefir' },
+  { id: 'despensa', name: 'Despensa', e: '🥫', words: 'arroz pasta macarrones espaguetis aceite sal azucar azúcar harina legumbres lentejas garbanzos tomate frito conserva cafe café cacao cereales galletas especias vinagre' },
+  { id: 'bebidas', name: 'Bebidas', e: '🥤', words: 'agua cerveza vino refresco zumo coca cola tonica tónica' },
+  { id: 'congelados', name: 'Congelados', e: '🧊', words: 'congelado congelados helado pizza hielo' },
+  { id: 'limpieza', name: 'Limpieza y hogar', e: '🧽', words: 'detergente lejia lejía suavizante papel higienico higiénico cocina bolsas basura lavavajillas fregasuelos estropajo servilletas' },
+  { id: 'higiene', name: 'Higiene', e: '🧴', words: 'champu champú gel desodorante pasta dientes cepillo cuchillas crema compresas' },
+  { id: 'otros', name: 'Otros', e: '📦', words: '' },
+];
+const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function guessAisle(text) {
+  const t = norm(text);
+  const hit = AISLES.find((a) => a.words && norm(a.words).split(' ').some((w) => w.length > 2 && t.includes(w)));
+  return hit ? hit.id : 'otros';
+}
+
+export const pendingCount = () => db().shopping.filter((i) => !i.done).length;
+
+export default {
+  title: 'Lista de la compra',
+  render(view, { rerender }) {
+    const { shopping } = db();
+    const groups = AISLES.map((a) => ({ ...a, items: shopping.filter((i) => i.cat === a.id) })).filter((g) => g.items.length);
+    const doneCount = shopping.filter((i) => i.done).length;
+
+    view.innerHTML = `
+      <form class="row" style="margin-bottom:12px" data-add>
+        <input class="input grow" name="text" placeholder="Añadir (ej: leche, pan, tomates)…" autocomplete="off">
+        <button class="btn primary">Añadir</button>
+      </form>
+      ${groups.length ? groups.map((g) => `
+        <div class="section-title">${g.e} ${g.name}</div>
+        <div class="card"><ul class="list">${g.items.map((i) => `
+          <li class="shop-item ${i.done ? 'done' : ''}">
+            <label class="check grow"><input type="checkbox" data-t="${i.id}" ${i.done ? 'checked' : ''}><span class="grow">${esc(i.text)}</span></label>
+            <button class="x-btn" data-del="${i.id}" aria-label="Quitar">✕</button>
+          </li>`).join('')}</ul></div>`).join('')
+        : '<div class="empty"><span class="big">🛒</span>La lista está vacía. Se ordena sola por secciones del súper.</div>'}
+      ${doneCount ? `<button class="btn block" data-clear>🧹 Quitar ${doneCount} comprado${doneCount > 1 ? 's' : ''}</button>` : ''}`;
+
+    const form = view.querySelector('[data-add]');
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      // Se pueden añadir varios separados por comas
+      const items = form.text.value.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!items.length) return;
+      update((d) => items.forEach((text) => d.shopping.push({ id: uid(), text, cat: guessAisle(text), done: false })));
+      rerender();
+      setTimeout(() => view.querySelector('[name=text]')?.focus(), 0);
+    };
+    view.querySelectorAll('[data-t]').forEach((c) => {
+      c.onchange = () => {
+        update((d) => {
+          const it = d.shopping.find((i) => i.id === c.dataset.t);
+          if (it) it.done = c.checked;
+        });
+        rerender();
+      };
+    });
+    view.querySelectorAll('[data-del]').forEach((b) => {
+      b.onclick = () => {
+        update((d) => (d.shopping = d.shopping.filter((i) => i.id !== b.dataset.del)));
+        rerender();
+      };
+    });
+    view.querySelector('[data-clear]')?.addEventListener('click', () => {
+      update((d) => (d.shopping = d.shopping.filter((i) => !i.done)));
+      toast('Lista limpia');
+      rerender();
+    });
+  },
+};
