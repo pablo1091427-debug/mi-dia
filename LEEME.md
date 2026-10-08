@@ -29,3 +29,9 @@ No necesita instalación ni compilación: son archivos HTML/CSS/JS estáticos.
 1. Editar los archivos.
 2. Subir la versión en `sw.js` (`mi-dia-v1` → `mi-dia-v2`) para que el móvil descargue lo nuevo.
 3. Subir a GitHub; GitHub Pages la publica sola.
+
+## Diseño
+
+- `css/styles.css`: sistema de diseño (tokens de color claro/oscuro, tipografía, componentes). Las pantallas usan clases compartidas (`card`, `btn`, `input`, `list`, `chip`, `tabs`…).
+- Tipografía: Plus Jakarta Sans (licencia SIL OFL, `fonts/OFL.txt`), incluida en la app para funcionar sin conexión.
+- Iconos de navegación: Lucide (licencia ISC), en `js/icons.js`.

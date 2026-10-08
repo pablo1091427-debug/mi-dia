@@ -35,6 +35,7 @@ import vault from './modules/vault.js';
 import { initLock } from './lock.js';
 import { autoBackup } from './backup.js';
 import { initSync } from './sync.js';
+import { icon } from './icons.js';
 
 // Pestañas principales (barra inferior) y módulos secundarios (desde "Más")
 const TABS = ['inicio', 'calendario', 'notas', 'deporte', 'mas'];
@@ -92,6 +93,28 @@ function render() {
     mod.quickAdd(render, view);
   }
 }
+
+// Iconos de la navegación
+$$('[data-i]').forEach((el) => (el.innerHTML = icon(el.dataset.i)));
+
+// Detalle visual: el emoji del principio de cada título va dentro de una pastilla
+const EMOJI = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})|[\u{1F3FB}-\u{1F3FF}])*)\s*/u;
+function decorate(root) {
+  root.querySelectorAll?.('.card > h2, .sheet-head h3, .section-title').forEach((h) => {
+    if (h.dataset.deco) return;
+    h.dataset.deco = '1';
+    const first = h.firstChild;
+    if (first?.nodeType !== 3) return;
+    const m = first.textContent.match(EMOJI);
+    if (!m) return;
+    first.textContent = first.textContent.slice(m[0].length);
+    const span = document.createElement('span');
+    span.className = 'h-ico';
+    span.textContent = m[1];
+    h.insertBefore(span, first);
+  });
+}
+new MutationObserver((list) => list.forEach((r) => r.addedNodes.forEach((n) => n.nodeType === 1 && decorate(n.parentNode || n)))).observe(document.body, { childList: true, subtree: true });
 
 $('#back-btn').addEventListener('click', () => {
   if (history.length > 1) history.back();

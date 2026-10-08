@@ -107,7 +107,7 @@ export default {
         </div>
         <button class="btn danger block" data-reset style="margin-top:8px">Borrar todos los datos</button>
       </div>
-      <p class="small muted" style="text-align:center">Mi Día · v5.0</p>`;
+      <p class="small muted" style="text-align:center">Mi Día · v6.0</p>`;
 
     // ---------- Sincronización ----------
     const fromSync = { fromSync: true };

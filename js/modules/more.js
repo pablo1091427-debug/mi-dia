@@ -1,48 +1,51 @@
+import { icon } from '../icons.js';
+
+// [título, color de la sección, [[ruta, icono, nombre], …]]
 const GROUPS = [
-  ['Organización', [
-    ['hoy', '🎯', 'Modo Hoy'],
-    ['recordatorios', '⏰', 'Recordatorios'],
-    ['tareas', '✔️', 'Tareas'],
-    ['vencimientos', '📌', 'Vencimientos'],
-    ['compra', '🛒', 'Compra'],
-    ['cumples', '🎂', 'Cumpleaños'],
-    ['notasvoz', '🎙️', 'Notas de voz'],
-    ['diario', '📔', 'Diario'],
-    ['datos', '🔐', 'Datos útiles'],
-    ['asistente', '🤖', 'Asistente'],
+  ['Organización', 'org', [
+    ['hoy', 'today', 'Modo Hoy'],
+    ['recordatorios', 'reminders', 'Recordatorios'],
+    ['tareas', 'tasks', 'Tareas'],
+    ['vencimientos', 'deadlines', 'Vencimientos'],
+    ['compra', 'shopping', 'Compra'],
+    ['cumples', 'birthdays', 'Cumpleaños'],
+    ['notasvoz', 'voice', 'Notas de voz'],
+    ['diario', 'diary', 'Diario'],
+    ['datos', 'vault', 'Datos útiles'],
+    ['asistente', 'assistant', 'Asistente'],
   ]],
-  ['Dinero', [
-    ['gastos', '💶', 'Finanzas'],
-    ['compartidos', '👥', 'Compartidos'],
-    ['informes', '📊', 'Informes'],
+  ['Dinero', 'money', [
+    ['gastos', 'finance', 'Finanzas'],
+    ['compartidos', 'split', 'Compartidos'],
+    ['informes', 'reports', 'Informes'],
   ]],
-  ['Salud', [
-    ['gimnasio', '🏋️', 'Gimnasio'],
-    ['salud', '❤️', 'Salud'],
-    ['habitos', '✅', 'Hábitos'],
-    ['retos', '🏆', 'Retos'],
+  ['Salud', 'health', [
+    ['gimnasio', 'gym', 'Gimnasio'],
+    ['salud', 'health', 'Salud'],
+    ['habitos', 'habits', 'Hábitos'],
+    ['retos', 'challenges', 'Retos'],
   ]],
-  ['Casa y coche', [
-    ['cuidados', '🌱', 'Cuidados'],
-    ['coche', '🚗', 'Coche'],
-    ['cocina', '🍳', 'Cocina'],
+  ['Casa y coche', 'home', [
+    ['cuidados', 'cares', 'Cuidados'],
+    ['coche', 'car', 'Coche'],
+    ['cocina', 'kitchen', 'Cocina'],
   ]],
-  ['Ocio y salir', [
-    ['tiempo', '🌤️', 'Tiempo'],
-    ['bares', '🍺', 'Cerca de mí'],
-    ['lugares', '⭐', 'Mis lugares'],
-    ['planes', '🎉', 'Planes finde'],
-    ['ocio', '🎬', 'Pelis y libros'],
-    ['viajes', '✈️', 'Viajes'],
+  ['Ocio y salir', 'fun', [
+    ['tiempo', 'weather', 'Tiempo'],
+    ['bares', 'nearby', 'Cerca de mí'],
+    ['lugares', 'places', 'Mis lugares'],
+    ['planes', 'plans', 'Planes finde'],
+    ['ocio', 'media', 'Pelis y libros'],
+    ['viajes', 'trips', 'Viajes'],
   ]],
-  ['', [['ajustes', '⚙️', 'Ajustes']]],
+  ['Sistema', 'sys', [['ajustes', 'settings', 'Ajustes']]],
 ];
 
 export default {
   title: 'Más',
   render(view) {
-    view.innerHTML = GROUPS.map(([title, tiles]) => `
-      ${title ? `<div class="tiles-title">${title}</div>` : '<div style="height:16px"></div>'}
-      <div class="tiles">${tiles.map(([r, e, n]) => `<a class="tile" href="#/${r}"><span>${e}</span>${n}</a>`).join('')}</div>`).join('');
+    view.innerHTML = GROUPS.map(([title, tint, tiles]) => `
+      <div class="tiles-title">${title}</div>
+      <div class="tiles" data-tint="${tint}">${tiles.map(([r, i, n]) => `<a class="tile" href="#/${r}"><span>${icon(i, 22)}</span>${n}</a>`).join('')}</div>`).join('');
   },
 };

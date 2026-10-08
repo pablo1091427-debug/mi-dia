@@ -4,29 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Mi Día</title>
-  <meta name="description" content="Mi app personal: calendario, notas, deporte, tiempo, bares cercanos y más.">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="Mi app personal: calendario, notas, deporte, finanzas, tiempo, bares cercanos y más.">
+  <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preload" href="fonts/jakarta.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <button class="icon-btn" id="back-btn" aria-label="Volver" hidden>‹</button>
+    <button class="icon-btn" id="back-btn" aria-label="Volver" hidden data-i="back"></button>
     <h1 id="page-title">Mi Día</h1>
     <span class="topbar-spacer"></span>
-    <button class="icon-btn" id="settings-btn" aria-label="Ajustes">⚙️</button>
+    <button class="icon-btn" id="settings-btn" aria-label="Ajustes" data-i="settings"></button>
   </header>
 
   <main id="view" class="view"></main>
 
-  <nav class="bottom-nav" id="bottom-nav">
-    <a href="#/inicio" data-route="inicio"><span>🏠</span>Inicio</a>
-    <a href="#/calendario" data-route="calendario"><span>📅</span>Calendario</a>
-    <a href="#/notas" data-route="notas"><span>📝</span>Notas</a>
-    <a href="#/deporte" data-route="deporte"><span>🏋️</span>Deporte</a>
-    <a href="#/mas" data-route="mas"><span>☰</span>Más</a>
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Principal">
+    <div class="brand"><img src="icons/icon-192.png" alt="">Mi Día</div>
+    <a href="#/inicio" data-route="inicio"><span class="nav-ico" data-i="home"></span>Inicio</a>
+    <a href="#/calendario" data-route="calendario"><span class="nav-ico" data-i="calendar"></span>Calendario</a>
+    <a href="#/notas" data-route="notas"><span class="nav-ico" data-i="notes"></span>Notas</a>
+    <a href="#/deporte" data-route="deporte"><span class="nav-ico" data-i="sport"></span>Deporte</a>
+    <a href="#/mas" data-route="mas"><span class="nav-ico" data-i="more"></span>Más</a>
   </nav>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
