@@ -1,11 +1,10 @@
-// Cuidados que se repiten: mascotas, plantas y tareas de casa (regar cada 3 días, pipeta cada mes…).
+// Cuidados que se repiten: plantas y tareas de casa (regar cada 3 días, cambiar sábanas cada semana…).
 import { db, update } from '../store.js';
 import { esc, uid, dkey, parseKey, addDays, toast, sheet, confirmSheet } from '../utils.js';
 
 const TEMPLATES = [
   ['🌱', 'Plantas', 'Regar', 3], ['🌱', 'Plantas', 'Abonar', 30],
-  ['🐶', 'Perro', 'Pipeta antiparasitaria', 30], ['🐶', 'Perro', 'Vacuna anual', 365], ['🐶', 'Perro', 'Baño', 21],
-  ['🐱', 'Gato', 'Cambiar arena', 7], ['🐱', 'Gato', 'Desparasitar', 90], ['🐟', 'Pecera', 'Cambiar agua', 14],
+  ['🌿', 'Plantas', 'Cambiar de maceta', 365], ['🧺', 'Casa', 'Poner lavadora de toallas', 7],
   ['🛏️', 'Casa', 'Cambiar sábanas', 7], ['🧊', 'Casa', 'Limpiar nevera', 30], ['🌀', 'Casa', 'Limpiar filtros del aire', 90],
 ];
 
@@ -26,7 +25,7 @@ function openCareSheet(onSaved) {
       <div class="chips" style="flex-wrap:wrap;margin-bottom:12px">${TEMPLATES.map((t, i) => `<button type="button" class="chip" data-t="${i}">${t[0]} ${t[2]}</button>`).join('')}</div>
       <div class="row">
         <label class="field" style="width:76px"><span>Icono</span><input class="input" name="emoji" value="🌱" style="text-align:center;font-size:20px"></label>
-        <label class="field grow"><span>¿De quién/qué?</span><input class="input" name="subject" required placeholder="Plantas, Toby, la casa…"></label>
+        <label class="field grow"><span>¿De quién/qué?</span><input class="input" name="subject" required placeholder="Plantas, la casa, el coche…"></label>
       </div>
       <label class="field"><span>¿Qué hay que hacer?</span><input class="input" name="what" required placeholder="Regar"></label>
       <div class="row">
@@ -65,7 +64,7 @@ export default {
           <button class="x-btn" data-del="${c.id}" aria-label="Borrar">✕</button></li>`;
       }).join('')}</ul></div>
       <p class="small muted" style="text-align:center">Lo que toca hoy aparece también en Inicio.</p>`
-      : '<div class="empty"><span class="big">🌱</span>Apunta cuidados que se repiten: regar las plantas, la pipeta del perro, cambiar las sábanas… y te avisaré cuando toque.</div>'}
+      : '<div class="empty"><span class="big">🌱</span>Apunta cuidados que se repiten: regar las plantas, cambiar las sábanas, limpiar la nevera… y te avisaré cuando toque.</div>'}
       <button class="fab" aria-label="Nuevo cuidado">+</button>`;
     view.querySelector('.fab').onclick = () => openCareSheet(rerender);
     view.querySelectorAll('[data-done]').forEach((b) => (b.onclick = () => { markCare(b.dataset.done); toast('✅ Hecho'); rerender(); }));

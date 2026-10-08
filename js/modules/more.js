@@ -8,6 +8,7 @@ const GROUPS = [
     ['cumples', '🎂', 'Cumpleaños'],
     ['notasvoz', '🎙️', 'Notas de voz'],
     ['diario', '📔', 'Diario'],
+    ['datos', '🔐', 'Datos útiles'],
     ['asistente', '🤖', 'Asistente'],
   ]],
   ['Dinero', [
@@ -19,6 +20,7 @@ const GROUPS = [
     ['gimnasio', '🏋️', 'Gimnasio'],
     ['salud', '❤️', 'Salud'],
     ['habitos', '✅', 'Hábitos'],
+    ['retos', '🏆', 'Retos'],
   ]],
   ['Casa y coche', [
     ['cuidados', '🌱', 'Cuidados'],

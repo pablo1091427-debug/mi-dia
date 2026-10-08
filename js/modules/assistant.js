@@ -9,12 +9,13 @@ import { EXP_CATS, INC_CATS, monthSummary, addExpense, addIncome } from './expen
 import { addTask, openTasks } from './tasks.js';
 import { addDeadline, dueSoon, DL_CATS } from './deadlines.js';
 import { nextTrip } from './trips.js';
-import { waterToday, addWater, logWeight, logSleep } from './health.js';
+import { logWeight, logSleep } from './health.js';
 import { addMedia, MEDIA_TYPES } from './media.js';
 import { writeDiary, MOODS } from './diary.js';
 import { addFuel } from './car.js';
 import { markCare, dueCares } from './cares.js';
 import { forecast } from './expenses.js';
+import { activeChallenges, checkIn, progress } from './challenges.js';
 import { shopAdd, shopSetDone, pendingItems } from './shopping.js';
 import { addReminder, pendingReminders, whenLabel } from './reminders.js';
 import { cachedWeather, wInfo } from './weather.js';
@@ -61,9 +62,12 @@ export function appContext() {
   if (cares.length) lines.push(`Cuidados que tocan hoy: ${cares.map((c) => `${c.what} (${c.subject})`).join('; ')}.`);
   if (d.splitGroups.length) lines.push(`Grupos de gastos compartidos: ${d.splitGroups.map((g) => `${g.name} (${g.members.join(', ')})`).join('; ')}.`);
   if (d.diary[dkey()]) lines.push(`Diario de hoy: ${d.diary[dkey()].text}`);
+  const retos = activeChallenges();
+  if (retos.length) lines.push(`Retos en marcha: ${retos.map((c) => `${c.name} (${c.type === 'daily' ? `${progress(c).value}/${c.target} días${c.log[dkey()] ? ', hoy cumplido' : ', hoy pendiente'}` : `${progress(c).value}/${c.target} ${c.unit}`})`).join('; ')}.`);
   const trip = nextTrip();
   if (trip) lines.push(`Próximo viaje: ${trip.dest} del ${trip.from} al ${trip.to}.`);
-  lines.push(`Salud hoy: ${waterToday()}/${d.settings.waterGoal || 8} vasos de agua${d.sleep[dkey()] !== undefined ? `, durmió ${d.sleep[dkey()]} h` : ''}${d.weights.length ? `, último peso ${d.weights.at(-1).kg} kg (${d.weights.at(-1).date})` : ''}.`);
+  const health = [d.sleep[dkey()] !== undefined ? `durmió ${d.sleep[dkey()]} h` : '', d.weights.length ? `último peso ${d.weights.at(-1).kg} kg (${d.weights.at(-1).date})` : ''].filter(Boolean);
+  if (health.length) lines.push(`Salud: ${health.join(', ')}.`);
   if (w) {
     const c = w.w.current;
     lines.push(`Tiempo en ${w.place || 'su zona'}: ${Math.round(c.temperature_2m)}°C, ${wInfo(c.weather_code).t}; hoy máx ${Math.round(w.w.daily.temperature_2m_max[0])}° y mín ${Math.round(w.w.daily.temperature_2m_min[0])}°, probabilidad de lluvia ${w.w.daily.precipitation_probability_max[0]}%.`);
@@ -72,7 +76,7 @@ export function appContext() {
   return lines.join('\n');
 }
 
-const SYSTEM = `Eres el asistente personal integrado en «Mi Día», la app personal del usuario (calendario, recordatorios, tareas, vencimientos, notas, deporte, gimnasio, salud, hábitos, finanzas, compra, cumpleaños, viajes, ocio). Respondes en español, de forma cercana, breve y práctica, como un buen amigo organizado. Escribe en texto plano sin Markdown (sin asteriscos ni almohadillas); usa guiones para las listas.
+const SYSTEM = `Eres el asistente personal integrado en «Mi Día», la app personal del usuario (calendario, recordatorios, retos, tareas, vencimientos, notas, deporte, gimnasio, salud, hábitos, finanzas, compra, cumpleaños, viajes, ocio). Respondes en español, de forma cercana, breve y práctica, como un buen amigo organizado. Escribe en texto plano sin Markdown (sin asteriscos ni almohadillas); usa guiones para las listas.
 
 También eres su asistente financiero personal: ayudas a controlar ingresos y gastos, presupuestos y ahorro con consejos concretos basados en sus números (usa consultar_finanzas). No recomiendes productos financieros ni inversiones concretas; para eso sugiere un profesional.
 
@@ -191,8 +195,8 @@ const TOOLS = [
   },
   {
     name: 'registrar_salud',
-    description: 'Registra peso (kg), vasos de agua bebidos (se suman a los de hoy) u horas de sueño.',
-    input_schema: obj({ peso_kg: { type: 'number' }, vasos_agua: { type: 'integer' }, horas_sueno: { type: 'number' }, fecha: DATE }, []),
+    description: 'Registra peso (kg) u horas de sueño.',
+    input_schema: obj({ peso_kg: { type: 'number' }, horas_sueno: { type: 'number' }, fecha: DATE }, []),
   },
   {
     name: 'escribir_diario',
@@ -206,13 +210,18 @@ const TOOLS = [
   },
   {
     name: 'marcar_cuidado',
-    description: 'Marca como hecho un cuidado recurrente (regar plantas, pipeta del perro, cambiar sábanas…).',
-    input_schema: obj({ texto: { type: 'string', description: 'Qué se ha hecho o de quién, p. ej. «regar» o «Toby»' } }, ['texto']),
+    description: 'Marca como hecho un cuidado recurrente (regar plantas, cambiar sábanas…).',
+    input_schema: obj({ texto: { type: 'string', description: 'Qué se ha hecho o de quién, p. ej. «regar» o «plantas»' } }, ['texto']),
   },
   {
     name: 'anadir_gasto_compartido',
     description: 'Apunta un gasto en un grupo de gastos compartidos (piso, viaje…), repartido entre los indicados o entre todos.',
     input_schema: obj({ grupo: { type: 'string' }, concepto: { type: 'string' }, importe: { type: 'number' }, pago: { type: 'string', description: 'Quién pagó' }, entre: { type: 'array', items: { type: 'string' }, description: 'Vacío = todos' } }, ['grupo', 'concepto', 'importe', 'pago']),
+  },
+  {
+    name: 'marcar_reto',
+    description: 'Marca hoy como cumplido un reto diario, o suma una cantidad a un reto de cantidad (€, km…).',
+    input_schema: obj({ reto: { type: 'string', description: 'Nombre o parte del nombre del reto' }, cantidad: { type: 'number', description: 'Solo para retos de cantidad' } }, ['reto']),
   },
   {
     name: 'anadir_ocio',
@@ -334,7 +343,6 @@ async function runTool(name, i) {
       const date = isDate(i.fecha) ? i.fecha : dkey();
       const done = [];
       if (i.peso_kg) { logWeight({ kg: Number(i.peso_kg), date }); done.push(`⚖️ ${i.peso_kg} kg`); }
-      if (Number.isInteger(i.vasos_agua) && i.vasos_agua) { addWater(i.vasos_agua); done.push(`💧 +${i.vasos_agua} vasos`); }
       if (i.horas_sueno !== undefined && i.horas_sueno !== null) { logSleep(Number(i.horas_sueno), date); done.push(`😴 ${i.horas_sueno} h`); }
       need(done.length, 'No hay nada que registrar');
       return { result: 'Registrado.', label: done.join(' · ') };
@@ -366,6 +374,17 @@ async function runTool(name, i) {
       need(amount > 0 && among.length, 'Importe o reparto no válido');
       update((d) => d.splitGroups.find((x) => x.id === g.id).expenses.push({ id: uid(), desc: i.concepto, amount, payer, among, date: dkey() }));
       return { result: `Añadido a «${g.name}».`, label: `👥 ${g.name}: ${i.concepto} ${fmtMoney(amount)}` };
+    }
+    case 'marcar_reto': {
+      const q = norm(i.reto || '');
+      const c = activeChallenges().find((x) => norm(x.name).includes(q) || q.includes(norm(x.name)));
+      need(c, `No encontré ese reto. Retos en marcha: ${activeChallenges().map((x) => x.name).join('; ') || 'ninguno'}`);
+      if (c.type === 'daily') {
+        need(!c.log[dkey()], 'Ese reto ya estaba marcado hoy');
+        checkIn(c.id);
+      } else checkIn(c.id, Number(i.cantidad));
+      const p = progress(db().challenges.find((x) => x.id === c.id));
+      return { result: `Reto actualizado: ${Math.round(p.pct * 100)} % completado.`, label: `${c.emoji} ${c.name} · ${Math.round(p.pct * 100)} %` };
     }
     case 'anadir_ocio': {
       const m = addMedia({ type: i.tipo, title: i.titulo, status: i.estado || 'pendiente', rating: i.valoracion || 0 });

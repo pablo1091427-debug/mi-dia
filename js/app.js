@@ -30,6 +30,8 @@ import cares from './modules/cares.js';
 import diary from './modules/diary.js';
 import reports, { maybeMonthlyReport } from './modules/reports.js';
 import today from './modules/today.js';
+import challenges from './modules/challenges.js';
+import vault from './modules/vault.js';
 import { initLock } from './lock.js';
 import { autoBackup } from './backup.js';
 import { initSync } from './sync.js';
@@ -42,7 +44,7 @@ const routes = {
   cumples: birthdays, lugares: places, asistente: assistant, ajustes: settings, recordatorios: reminders,
   finanzas: expenses, tareas: tasks, vencimientos: deadlines, gimnasio: gym, salud: health, viajes: trips,
   ocio: media, planes: plans, cocina: recipes,
-  compartidos: split, notasvoz: voice, coche: car, cuidados: cares, diario: diary, informes: reports, hoy: today,
+  compartidos: split, notasvoz: voice, coche: car, cuidados: cares, diario: diary, informes: reports, hoy: today, retos: challenges, datos: vault,
 };
 
 let cleanup = null;

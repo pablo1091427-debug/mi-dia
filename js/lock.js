@@ -38,7 +38,9 @@ export function disableLock() {
   });
 }
 
-async function verify() {
+export const lockEnabled = () => !!(db().settings.lock && db().settings.lockCredId);
+
+export async function verify() {
   await navigator.credentials.get({
     publicKey: {
       challenge: rand(32),

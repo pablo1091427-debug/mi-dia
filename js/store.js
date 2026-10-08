@@ -28,7 +28,6 @@ const defaults = () => ({
   gymSessions: [],    // {id, date, routineId, sets: [{ex, reps, kg}]}
   weights: [],        // {date, kg, waist}
   sleep: {},          // {'AAAA-MM-DD': horas}
-  water: {},          // {'AAAA-MM-DD': vasos}
   // Ocio
   media: [],          // {id, type: peli|serie|libro, title, status: pendiente|en curso|terminado, rating, notes, updated}
   recipes: [],        // recetas guardadas {id, title, time, ingredients[], steps[]}
@@ -39,6 +38,8 @@ const defaults = () => ({
   car: { fuel: [], service: [] }, // repostajes {id,date,km,liters,price,full} · mantenimiento {id,date,km,what,cost}
   cares: [],          // cuidados recurrentes {id, subject, emoji, what, everyDays, last}
   diary: {},          // {'AAAA-MM-DD': {text, mood 1-5}}
+  challenges: [],     // retos {id, emoji, name, type: daily|amount, target, unit, strict, start, log: {fecha: true}, entries: [{date, value}], done}
+  vault: [],          // datos útiles {id, cat, title, fields: [{k, v}]} (protegidos con huella)
   shoppingDeleted: {},// borrados de la compra para sincronizar {id: marca de tiempo}
   modifiedAt: 0,      // última modificación local (para sincronizar)
   chat: [],           // {role, content, actions}
@@ -48,7 +49,6 @@ const defaults = () => ({
     googleConnected: false,
     anthropicKey: '',
     model: 'claude-opus-5-5',
-    waterGoal: 8,
     interests: '',      // para los planes del finde
     lock: false,        // bloqueo con huella
     lockCredId: '',
@@ -61,7 +61,8 @@ const defaults = () => ({
     syncCode: '',       // espacio personal: todos tus dispositivos
     syncPulledAt: 0,
     shareCode: '',      // lista de la compra compartida (p. ej. con tu pareja)
-    lastReport: '',     // último mes con informe generado (AAAA-MM)
+    lastReport: '',
+    vaultSync: false,   // incluir «Datos útiles» en copias y sincronización     // último mes con informe generado (AAAA-MM)
   },
 });
 
@@ -70,6 +71,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaults();
     const parsed = JSON.parse(raw);
+    delete parsed.water; // el registro de agua se eliminó en la v5
     const base = defaults();
     return { ...base, ...parsed, settings: { ...base.settings, ...(parsed.settings || {}) } };
   } catch {
@@ -109,7 +111,9 @@ const DEVICE_ONLY = ['anthropicKey', 'lock', 'lockCredId', 'googleConnected', 's
 export function exportJSON() {
   const settings = { ...data.settings };
   DEVICE_ONLY.forEach((k) => delete settings[k]);
-  return JSON.stringify({ app: 'mi-dia', version: 3, exported: new Date().toISOString(), data: { ...data, settings } });
+  const out = { ...data, settings };
+  if (!data.settings.vaultSync) delete out.vault; // los datos útiles no salen del móvil salvo que lo actives
+  return JSON.stringify({ app: 'mi-dia', version: 3, exported: new Date().toISOString(), data: out });
 }
 
 export function importJSON(text, { fromSync = false } = {}) {
@@ -118,7 +122,9 @@ export function importJSON(text, { fromSync = false } = {}) {
   if (typeof incoming !== 'object' || !incoming.settings) throw new Error('El archivo no es una copia de Mi Día');
   const base = defaults();
   const keep = Object.fromEntries(DEVICE_ONLY.map((k) => [k, data.settings[k]]));
+  const localVault = data.vault;
   data = { ...base, ...incoming, settings: { ...base.settings, ...incoming.settings, ...keep } };
+  if (!incoming.vault || !data.settings.vaultSync) data.vault = localVault || [];
   save({ fromSync });
 }
 

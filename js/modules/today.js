@@ -6,7 +6,6 @@ import { itemsForDay } from './calendar.js';
 import { pendingReminders, setDone } from './reminders.js';
 import { openTasks } from './tasks.js';
 import { isDone, toggleHabit } from './habits.js';
-import { waterToday, addWater } from './health.js';
 import { dueCares, markCare } from './cares.js';
 import { cachedWeather, wInfo } from './weather.js';
 
@@ -28,7 +27,6 @@ export default {
       const tasks = openTasks().filter((t) => !t.due || t.due <= today).slice(0, 6);
       const cares = dueCares();
       const w = cachedWeather();
-      const goal = d.settings.waterGoal || 8;
       view.innerHTML = `
         <div class="row" style="margin:4px 0 14px">
           <div class="grow"><div style="font-size:56px;font-weight:800;line-height:1">${now}</div><div class="muted">${cap(fmtLong(new Date()))}</div></div>
@@ -44,12 +42,10 @@ export default {
           ${cares.map((c) => `<li><input type="checkbox" data-care="${c.id}" style="width:24px;height:24px;flex:none"><span class="grow" style="font-size:17px">${esc(c.emoji)} ${esc(c.what)} <span class="small muted">${esc(c.subject)}</span></span></li>`).join('')}
           ${tasks.map((t) => `<li><span style="width:24px;text-align:center">✔️</span><a class="grow" href="#/tareas" style="font-size:17px;color:inherit;text-decoration:none">${esc(t.text)}</a></li>`).join('')}
         </ul></div>` : ''}
-        ${d.habits.length ? `<div class="chips" style="flex-wrap:wrap;margin-bottom:12px">${d.habits.map((h) => `<button class="chip ${isDone(h.id) ? 'active' : ''}" data-h="${h.id}" style="font-size:15px;padding:10px 16px">${isDone(h.id) ? '✓' : esc(h.emoji)} ${esc(h.name)}</button>`).join('')}</div>` : ''}
-        <div class="card row"><span style="font-size:28px">💧</span><b class="grow" style="font-size:18px">${waterToday()}/${goal}</b><button class="btn primary" data-water>+ Vaso</button></div>`;
+        ${d.habits.length ? `<div class="chips" style="flex-wrap:wrap;margin-bottom:12px">${d.habits.map((h) => `<button class="chip ${isDone(h.id) ? 'active' : ''}" data-h="${h.id}" style="font-size:15px;padding:10px 16px">${isDone(h.id) ? '✓' : esc(h.emoji)} ${esc(h.name)}</button>`).join('')}</div>` : ''}`;
       view.querySelectorAll('[data-rem]').forEach((c) => (c.onchange = () => { setDone(c.dataset.rem); draw(); }));
       view.querySelectorAll('[data-care]').forEach((c) => (c.onchange = () => { markCare(c.dataset.care); draw(); }));
       view.querySelectorAll('[data-h]').forEach((b) => (b.onclick = () => { toggleHabit(b.dataset.h); draw(); }));
-      view.querySelector('[data-water]').onclick = () => { addWater(1); draw(); };
     };
     draw();
     if (G.isReady()) {

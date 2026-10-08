@@ -1,12 +1,8 @@
-// Salud: peso y cintura, sueño y agua.
+// Salud: peso y cintura, y sueño.
 import { db, update } from '../store.js';
 import { esc, dkey, parseKey, addDays, toast, sheet } from '../utils.js';
 import { lineChart, bindCharts } from '../ui.js';
 
-export const waterToday = () => db().water[dkey()] || 0;
-export function addWater(n = 1) {
-  update((d) => (d.water[dkey()] = Math.max(0, (d.water[dkey()] || 0) + n)));
-}
 export function logWeight({ kg, waist = null, date = dkey() }) {
   if (!(kg > 20 && kg < 400)) throw new Error('Peso no válido');
   update((d) => {
@@ -52,8 +48,6 @@ export default {
   title: 'Salud',
   render(view, { rerender }) {
     const d = db();
-    const goal = d.settings.waterGoal || 8;
-    const w = waterToday();
     const last14 = Array.from({ length: 14 }, (_, i) => dkey(addDays(new Date(), i - 13)));
     const sleepPts = last14.filter((k) => d.sleep[k] !== undefined).map((k) => ({ label: dm(k), y: d.sleep[k], tip: `${dm(k)}: ${d.sleep[k]} h` }));
     const sleepAvg = sleepPts.length ? sleepPts.reduce((a, p) => a + p.y, 0) / sleepPts.length : null;
@@ -64,12 +58,6 @@ export default {
     const yesterday = dkey(addDays(new Date(), -1));
 
     view.innerHTML = `
-      <div class="card">
-        <h2>💧 Agua hoy <span class="badge" style="margin-left:auto">${w}/${goal} vasos</span></h2>
-        <div class="progress" style="margin-bottom:10px"><div style="width:${Math.min(100, (w / goal) * 100)}%;background:var(--series-1)"></div></div>
-        <div class="counter"><button class="btn" data-water="-1" aria-label="Quitar vaso">−</button><span class="grow" style="text-align:center;font-size:28px">${'💧'.repeat(Math.min(w, 12)) || '·'}</span><button class="btn primary" data-water="1" aria-label="Añadir vaso">+</button></div>
-      </div>
-
       <div class="card">
         <h2>😴 Sueño ${sleepAvg !== null ? `<span class="badge" style="margin-left:auto">Media ${sleepAvg.toFixed(1)} h</span>` : ''}</h2>
         <div class="row small"><span class="grow">¿Cuánto dormiste anoche?</span>
@@ -88,11 +76,6 @@ export default {
       <p class="small muted" style="text-align:center">El sueño se apunta para hoy; si se te olvidó, el de ayer: <a href="javascript:void 0" data-sleepy>apuntar ayer</a></p>`;
 
     bindCharts(view);
-    view.querySelectorAll('[data-water]').forEach((b) => (b.onclick = () => {
-      addWater(+b.dataset.water);
-      if (+b.dataset.water > 0 && waterToday() === goal) toast('🎉 ¡Objetivo de agua cumplido!');
-      rerender();
-    }));
     view.querySelector('[data-sleep]').onchange = (e) => {
       if (e.target.value === '') update((x) => delete x.sleep[dkey()]);
       else logSleep(+e.target.value);

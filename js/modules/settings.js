@@ -57,12 +57,8 @@ export default {
         <p class="small muted" style="margin-top:0">Pide tu huella (o el bloqueo de pantalla del móvil) al abrir la app y al volver tras más de 1 minuto.</p>
         <label class="check"><input type="checkbox" data-lock ${s.lock ? 'checked' : ''}> Activar bloqueo</label>
         <p class="small muted" data-lockmsg style="margin:0"></p>
-      </div>
-
-      <div class="card">
-        <h2>💧 Objetivos</h2>
-        <div class="row"><span class="grow">Vasos de agua al día</span>
-          <select class="input" style="width:auto" data-watergoal>${[4, 5, 6, 7, 8, 9, 10, 12].map((n) => `<option ${n === s.waterGoal ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <label class="check"><input type="checkbox" data-vaultsync ${s.vaultSync ? 'checked' : ''}> Incluir «Datos útiles» en copias y sincronización</label>
+        <p class="small muted" style="margin:0">Desactivado: tus contraseñas Wi-Fi y demás datos útiles no salen de este móvil.</p>
       </div>
 
       <div class="card" id="sync">
@@ -111,7 +107,7 @@ export default {
         </div>
         <button class="btn danger block" data-reset style="margin-top:8px">Borrar todos los datos</button>
       </div>
-      <p class="small muted" style="text-align:center">Mi Día · v4.0</p>`;
+      <p class="small muted" style="text-align:center">Mi Día · v5.0</p>`;
 
     // ---------- Sincronización ----------
     const fromSync = { fromSync: true };
@@ -185,6 +181,7 @@ export default {
       };
     }
 
+    view.querySelector('[data-vaultsync]').onchange = (e) => { update((d) => (d.settings.vaultSync = e.target.checked)); toast(e.target.checked ? 'Datos útiles incluidos en copias' : 'Datos útiles solo en este móvil'); };
     view.querySelector('[data-lock]').onchange = async (e) => {
       const msg = view.querySelector('[data-lockmsg]');
       if (e.target.checked) {
@@ -205,7 +202,6 @@ export default {
         toast('Bloqueo desactivado');
       }
     };
-    view.querySelector('[data-watergoal]').onchange = (e) => update((d) => (d.settings.waterGoal = +e.target.value));
     view.querySelector('[data-drive]').onchange = (e) => {
       update((d) => (d.settings.driveBackup = e.target.checked));
       if (e.target.checked) backupNow().then(() => { toast('☁️ Copia guardada en Drive'); rerender(); }).catch((err) => toast(err.message));

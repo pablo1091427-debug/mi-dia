@@ -21,7 +21,7 @@ export function habitStreak(habitId) {
   return n;
 }
 
-const SUGGESTIONS = [['💧', 'Beber 2 L de agua'], ['📖', 'Leer 20 minutos'], ['🧘', 'Meditar'], ['😴', 'Dormir 8 horas'], ['🚭', 'Sin tabaco'], ['🥗', 'Comer sano'], ['📵', 'Sin móvil en la cama'], ['🚶', '10.000 pasos']];
+const SUGGESTIONS = [['📖', 'Leer 20 minutos'], ['🧘', 'Meditar'], ['😴', 'Dormir 8 horas'], ['🚭', 'Sin tabaco'], ['🥗', 'Comer sano'], ['📵', 'Sin móvil en la cama'], ['🚶', '10.000 pasos']];
 
 function openHabitSheet(onSaved) {
   const s = sheet({

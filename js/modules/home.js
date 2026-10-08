@@ -14,8 +14,8 @@ import { openTasks, dueLabel } from './tasks.js';
 import { dueSoon, daysLeft, leftLabel } from './deadlines.js';
 import { dueCares, markCare } from './cares.js';
 import { forecast } from './expenses.js';
+import { activeChallenges, challengeCard, bindChallengeCards } from './challenges.js';
 import { nextTrip, daysUntil } from './trips.js';
-import { waterToday, addWater } from './health.js';
 import { monthSummary } from './expenses.js';
 import { askText, hasKey, speak } from '../ai.js';
 import { appContext } from './assistant.js';
@@ -68,12 +68,12 @@ export default {
     const limit = dkey(new Date(Date.now() + 86400000));
     const rems = pendingReminders().filter((r) => r.date <= limit).slice(0, 5);
     const tasks = openTasks().filter((t) => t.due && t.due <= today).slice(0, 5);
+    const retos = activeChallenges().slice(0, 3);
     const dls = dueSoon().slice(0, 3);
     const cares = dueCares().slice(0, 4);
     const fc = forecast();
     const diaryPending = new Date().getHours() >= 20 && !d.diary[today];
     const trip = nextTrip();
-    const water = waterToday();
     const fin = monthSummary();
     const brief = getBrief();
 
@@ -120,6 +120,8 @@ export default {
         <button class="btn small block" data-addrem style="margin-top:8px">+ Recordatorio</button>
       </div>
 
+      ${retos.length ? `<div class="section-title" style="margin-top:4px">🏆 Retos <a href="#/retos" style="float:right;text-transform:none;font-weight:500">Ver todos</a></div>${retos.map(challengeCard).join('')}` : ''}
+
       <div class="card">
         <h2>🏋️ Deporte <a class="link" href="#/deporte">Ver más</a></h2>
         <div class="row">
@@ -134,11 +136,6 @@ export default {
         <h2>✅ Hábitos de hoy <a class="link" href="#/habitos">Ver</a></h2>
         <div class="chips" style="flex-wrap:wrap">${d.habits.map((h) => `<button class="chip ${isDone(h.id) ? 'active' : ''}" data-h="${h.id}">${isDone(h.id) ? '✓' : esc(h.emoji)} ${esc(h.name)}</button>`).join('')}</div>
       </div>` : ''}
-
-      <div class="card row">
-        <span style="font-size:24px">💧</span><div class="grow"><b>${water}/${d.settings.waterGoal || 8}</b> <span class="small muted">vasos de agua</span></div>
-        <button class="btn small primary" data-water aria-label="Añadir vaso de agua">+ Vaso</button>
-      </div>
 
       <div class="grid-2">
         <a class="card" href="#/gastos" style="text-decoration:none;color:inherit"><div class="stat-label">💶 Balance del mes</div><div class="stat" style="font-size:20px;color:${fin.balance < 0 ? 'var(--danger)' : 'inherit'}">${fin.income ? (fin.balance >= 0 ? '+' : '') + fmtMoney(fin.balance) : '−' + fmtMoney(fin.spent)}</div><div class="small muted">${fc && fin.income ? `🔮 a fin de mes: ${fmtMoney(fc.balance)}` : fin.income ? `gastado ${fmtMoney(fin.spent)}` : 'gastado'}${fin.over.length ? ' · ⚠️ presupuesto' : ''}</div></a>
@@ -174,8 +171,8 @@ export default {
       const h = new Date().getHours();
       if (!brief && h >= 5 && h < 13) makeBrief(briefBox);
     }
+    bindChallengeCards(view, rerender);
     view.querySelectorAll('[data-care]').forEach((b) => (b.onclick = () => { markCare(b.dataset.care); rerender(); }));
-    view.querySelector('[data-water]').onclick = () => { addWater(1); rerender(); };
 
     // Agenda de hoy (locales + Google si hay sesión)
     const drawToday = (gEvents = []) => {

@@ -29,7 +29,6 @@ export function computeStats(ym) {
     sportDays: Object.keys(d.sport).filter(inMonth).length,
     gym: d.gymSessions.filter((s) => inMonth(s.date)).length,
     sleep: avg(Object.entries(d.sleep).filter(([k]) => inMonth(k)).map(([, v]) => v)),
-    water: avg(Object.entries(d.water).filter(([k]) => inMonth(k)).map(([, v]) => v)),
     habits: d.habits.length ? Math.round((habitDone / (d.habits.length * elapsed)) * 100) : null,
     tasksDone: d.tasks.filter((t) => t.done && t.doneAt && inMonth(dkey(new Date(t.doneAt)))).length,
     weight: weights.length >= 2 ? Math.round((weights.at(-1).kg - weights[0].kg) * 10) / 10 : null,
@@ -44,7 +43,7 @@ function statsText(ym, s) {
     `Informe de ${ymName(ym)}${s.days ? ` (${s.days} días)` : ''}:`,
     `Dinero: ingresos ${fmtMoney(s.income)}, gastos ${fmtMoney(s.spent)}, balance ${fmtMoney(s.balance)}${s.rate !== null ? `, ahorro ${Math.round(s.rate * 100)} %` : ''}. Categoría con más gasto: ${s.topCat || 'ninguna'}.${s.overBudget.length ? ` Presupuesto superado en ${s.overBudget.join(', ')}.` : ''}`,
     `Deporte: ${s.sportDays} días, ${s.gym} sesiones de gimnasio.`,
-    `Salud: sueño medio ${s.sleep ? s.sleep.toFixed(1) + ' h' : 'sin datos'}, agua media ${s.water ? s.water.toFixed(1) + ' vasos' : 'sin datos'}${s.weight !== null ? `, peso ${s.weight > 0 ? '+' : ''}${s.weight} kg` : ''}.`,
+    `Salud: sueño medio ${s.sleep ? s.sleep.toFixed(1) + ' h' : 'sin datos'}${s.weight !== null ? `, peso ${s.weight > 0 ? '+' : ''}${s.weight} kg` : ''}.`,
     `Hábitos cumplidos: ${s.habits !== null ? s.habits + ' %' : 'sin hábitos'}. Tareas completadas: ${s.tasksDone}.`,
     `Diario: ${s.diaryDays} días escritos${s.mood ? `, ánimo medio ${s.mood.toFixed(1)}/5` : ''}.`,
   ].join('\n');
@@ -104,7 +103,6 @@ export default {
           ${tile('🏋️ Días de deporte', s.sportDays)}
           ${tile('💪 Gimnasio', `${s.gym} sesiones`)}
           ${tile('😴 Sueño medio', s.sleep ? s.sleep.toFixed(1) + ' h' : '—')}
-          ${tile('💧 Agua media', s.water ? s.water.toFixed(1) + ' vasos' : '—')}
           ${tile('✅ Hábitos', s.habits !== null ? s.habits + ' %' : '—')}
           ${tile('✔️ Tareas hechas', s.tasksDone)}
           ${tile('⚖️ Peso', s.weight !== null ? `${s.weight > 0 ? '+' : ''}${s.weight} kg` : '—')}
