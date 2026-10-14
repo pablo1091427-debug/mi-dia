@@ -358,7 +358,7 @@ export default {
             <label class="btn grow">📷 Ticket<input type="file" accept="image/*" capture="environment" data-ticket hidden></label>
           </div>
           <div class="row wrap" style="gap:8px;margin-top:8px">
-            <button class="btn grow" data-bank>🏦 Importar extracto</button>
+            <button class="btn grow" data-bank>🏦 Importar movimientos</button>
             <a class="btn grow" href="#/compartidos">👥 Gastos compartidos</a>
           </div>
         </div>

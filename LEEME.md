@@ -3,7 +3,7 @@
 App personal para el móvil (PWA): calendario sincronizado con Google Calendar, recordatorios, tareas,
 vencimientos, notas, deporte, gimnasio, salud, finanzas personales (ingresos, gastos, presupuestos, metas),
 tiempo, bares cercanos, lugares, planes del finde, cocina, pelis/series/libros, viajes, compra compartida,
-cumpleaños, gastos compartidos, importación de extractos del banco, informes mensuales, notas de voz,
+cumpleaños, gastos compartidos, importación de movimientos del banco (CSV, Excel o capturas de pantalla), informes mensuales, notas de voz,
 coche, cuidados recurrentes, diario, modo Hoy, perfil «Sobre mí» (con memoria del asistente), noticias a tu medida, sincronización entre dispositivos (Supabase), copia en
 Google Drive, bloqueo con huella y asistente con Claude que apunta cosas por ti.
 

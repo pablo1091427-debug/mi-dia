@@ -1,7 +1,8 @@
-// Importar el extracto del banco (CSV o Excel) y categorizar los movimientos (con Claude si hay clave).
+// Importar el extracto del banco (CSV, Excel o capturas de pantalla) y categorizar los movimientos (con Claude si hay clave).
 import { db, update } from '../store.js';
 import { esc, uid, dkey, fmtMoney, toast, sheet, loadScript } from '../utils.js';
-import { askJSON, objSchema, hasKey } from '../ai.js';
+import { askJSON, objSchema, hasKey, imageBlock } from '../ai.js';
+import { imageToBase64 } from '../ui.js';
 import { EXP_CATS, INC_CATS } from './expenses.js';
 
 const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -139,22 +140,60 @@ async function claudeCats(moves) {
   return out;
 }
 
+// ---------- Capturas de pantalla (Claude lee los movimientos) ----------
+const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name);
+
+async function readImages(files) {
+  if (!hasKey()) throw new Error('Para leer capturas hace falta la clave de Anthropic (en Ajustes). Sin ella, usa el archivo CSV o Excel del banco.');
+  const schema = objSchema({
+    movimientos: {
+      type: 'array',
+      items: objSchema({
+        fecha: { type: 'string', description: 'AAAA-MM-DD' },
+        concepto: { type: 'string' },
+        importe: { type: 'number', description: 'Negativo si es un gasto/cargo, positivo si es un ingreso/abono' },
+        categoria: { type: 'string', enum: [...new Set([...EXP_CATS, ...INC_CATS].map((c) => c.id))] },
+      }),
+    },
+  });
+  const content = [];
+  for (const f of files) content.push(imageBlock(await imageToBase64(f, 2000, 0.9)));
+  content.push({ type: 'text', text: `Hoy es ${dkey()}. Extrae todos los movimientos visibles.` });
+  const r = await askJSON({
+    system: `Lees capturas de pantalla de la app o la web de un banco español y extraes cada movimiento.
+- importe: en euros, negativo para gastos (cargos, pagos con tarjeta, recibos, transferencias enviadas, retiradas de cajero) y positivo para ingresos (nóminas, abonos, transferencias o Bizum recibidos, devoluciones). Fíjate en el signo, el color (rojo/verde) o la columna en la que aparece.
+- fecha: AAAA-MM-DD. Si falta el año, usa el más reciente que no sea posterior a hoy. «Hoy» y «Ayer» son relativos a hoy. Si una fecha encabeza un grupo de movimientos, aplícala a todos los del grupo.
+- concepto: el comercio o la descripción, sin códigos ni números de tarjeta.
+- categoria: los gastos usan ${EXP_CATS.map((c) => `${c.id}=${c.name}`).join(', ')}; los ingresos usan ${INC_CATS.map((c) => `${c.id}=${c.name}`).join(', ')}.
+- No incluyas saldos, totales, movimientos pendientes ni filas cortadas que no se lean enteras. Si varias capturas se solapan, no repitas movimientos.`,
+    content,
+    schema,
+    maxTokens: 12000,
+    effort: 'medium',
+  });
+  return r.movimientos
+    .filter((m) => /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && m.importe)
+    .map((m) => ({ date: m.fecha, concept: m.concepto.replace(/\s+/g, ' ').trim(), amount: Math.round(m.importe * 100) / 100, cat: m.categoria }));
+}
+
 // ---------- Pantalla de importación ----------
 export function openBankImport(onDone) {
   const s = sheet({
     title: '🏦 Importar extracto del banco',
-    body: `<p class="small muted" style="margin-top:0">Descarga los movimientos desde la web o la app de tu banco en <b>CSV o Excel</b> y elígelo aquí. Se leen en tu móvil; ${hasKey() ? 'Claude solo recibe los conceptos e importes para ponerles categoría.' : 'las categorías se ponen por palabras clave (con la clave de Claude serían más precisas).'}</p>
-      <label class="btn primary block">📂 Elegir archivo<input type="file" accept=".csv,.txt,.xlsx,.xls,.ods,text/csv" hidden data-file></label>
+    body: `<p class="small muted" style="margin-top:0">Haz <b>capturas de pantalla</b> de tus últimos movimientos en la app del banco (puedes elegir varias) o descarga el extracto en <b>CSV o Excel</b>. ${hasKey() ? 'Claude lee las capturas; de los archivos solo recibe los conceptos e importes para ponerles categoría.' : 'Para leer capturas hace falta la clave de Claude (en Ajustes). Los archivos se leen en tu móvil y las categorías se ponen por palabras clave.'}</p>
+      <label class="btn primary block">📷 Subir capturas o archivo<input type="file" accept="image/*,.csv,.txt,.xlsx,.xls,.ods,text/csv" multiple hidden data-file></label>
       <div id="imp" style="margin-top:12px"></div>`,
   });
   const box = s.el.querySelector('#imp');
   s.el.querySelector('[data-file]').onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    box.innerHTML = '<p class="muted">Leyendo el archivo…</p>';
+    const files = [...e.target.files];
+    e.target.value = '';
+    if (!files.length) return;
+    const images = files.filter(isImage);
+    box.innerHTML = `<p class="muted">${images.length ? `Claude está leyendo ${images.length > 1 ? `las ${images.length} capturas` : 'la captura'}… (tarda unos segundos)` : 'Leyendo el archivo…'}</p>`;
     try {
-      const moves = detect(await readRows(file));
-      if (!moves.length) throw new Error('No encontré movimientos (fecha + importe) en el archivo.');
+      const moves = images.length ? await readImages(images.slice(0, 10)) : detect(await readRows(files[0]));
+      if (!moves.length) throw new Error(images.length ? 'No encontré movimientos en la captura. Prueba con una imagen más nítida de la lista de movimientos.' : 'No encontré movimientos (fecha + importe) en el archivo.');
       // Quitar los que ya están apuntados (misma fecha, importe y concepto)
       const d = db();
       const seen = new Set([...d.expenses.map((x) => `${x.date}|${-x.amount}`), ...d.incomes.map((x) => `${x.date}|${x.amount}`)]
@@ -163,10 +202,10 @@ export function openBankImport(onDone) {
       if (!fresh.length) { box.innerHTML = `<p>Los ${moves.length} movimientos ya estaban apuntados. 👍</p>`; return; }
       box.innerHTML = `<p class="muted">Encontrados ${fresh.length} movimientos nuevos. Poniendo categorías…</p>`;
       let cats = new Map();
-      if (hasKey()) cats = await claudeCats(fresh).catch(() => new Map());
+      if (hasKey() && !images.length) cats = await claudeCats(fresh).catch(() => new Map());
       fresh.forEach((m, i) => {
         const valid = m.amount < 0 ? EXP_CATS : INC_CATS;
-        const c = cats.get(i);
+        const c = cats.get(i) ?? m.cat;
         m.cat = valid.some((x) => x.id === c) ? c : m.amount < 0 ? ruleCat(m.concept) : /nomina|salario|sueldo/.test(norm(m.concept)) ? 'salary' : 'other';
         m.include = true;
       });

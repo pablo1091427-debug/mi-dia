@@ -1,6 +1,6 @@
 // Service worker: guarda la app para que abra al instante y funcione sin conexión.
 // Sube la versión cada vez que cambies archivos para que el móvil descargue la nueva.
-const VERSION = 'mi-dia-v7';
+const VERSION = 'mi-dia-v8';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/store.js', './js/utils.js', './js/google.js',
